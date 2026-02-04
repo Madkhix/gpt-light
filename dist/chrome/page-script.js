@@ -3,15 +3,15 @@
   // src/page-script.ts
   var excludedRoles = /* @__PURE__ */ new Set(["system", "tool", "thinking"]);
   var originalFetch = window.fetch.bind(window);
-  var __DEV__ = true;
+  var __DEV__ = false;
   var debugLog = (...args) => {
     if (__DEV__) {
-      console.debug("[LightSession]", ...args);
+      console.log("[LightSession]", ...args);
     }
   };
   var settings = {
     enabled: true,
-    keepLastN: 30
+    keepLastN: 5
   };
   window.addEventListener("lightsession:settings", (event) => {
     const customEvent = event;
@@ -30,29 +30,111 @@
     if (settings.enabled) {
       trimDOMToLastNMessages(settings.keepLastN);
     }
-  }, 2e3);
+  }, 5e3);
+  var observer = new MutationObserver((mutations) => {
+    if (!settings.enabled) return;
+    let shouldTrim = false;
+    for (const mutation of mutations) {
+      if (mutation.type === "childList") {
+        for (const addedNode of mutation.addedNodes) {
+          if (addedNode.nodeType === Node.ELEMENT_NODE) {
+            const element = addedNode;
+            if (element.matches("[data-message-author-role]") || element.matches(".min-h-8.text-message") || element.querySelector("[data-message-author-role]") || element.querySelector(".min-h-8.text-message")) {
+              shouldTrim = true;
+              break;
+            }
+          }
+        }
+      }
+      if (shouldTrim) break;
+    }
+    if (shouldTrim) {
+      setTimeout(() => {
+        trimDOMToLastNMessages(settings.keepLastN);
+      }, 100);
+    }
+  });
+  var container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
+  if (container) {
+    observer.observe(container, {
+      childList: true,
+      subtree: true
+    });
+  } else {
+    setTimeout(() => {
+      const lateContainer = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
+      if (lateContainer) {
+        observer.observe(lateContainer, {
+          childList: true,
+          subtree: true
+        });
+      }
+    }, 3e3);
+  }
   function trimDOMToLastNMessages(keepLastN) {
-    const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
-    if (!container) {
+    const container2 = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]');
+    if (!container2) {
       if (__DEV__) debugLog("trimDOM: conversation container not found");
       return;
     }
-    let messageContainers = Array.from(container.querySelectorAll("[data-message-author-role]"));
-    if (messageContainers.length === 0) {
-      messageContainers = Array.from(container.querySelectorAll(".min-h-8.text-message"));
+    let allMessages = Array.from(container2.querySelectorAll("[data-message-author-role]"));
+    if (allMessages.length === 0) {
+      allMessages = Array.from(container2.querySelectorAll(".min-h-8.text-message"));
     }
-    if (messageContainers.length === 0) {
-      messageContainers = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
+    if (allMessages.length === 0) {
+      allMessages = Array.from(container2.querySelectorAll('[data-testid*="conversation-turn"]'));
     }
-    debugLog("trimDOM: found", messageContainers.length, "message containers");
-    debugLog("trimDOM: keepLastN", keepLastN, "targetCount", keepLastN * 2);
+    debugLog("trimDOM: found", allMessages.length, "message containers");
+    const validMessages = allMessages.filter((msg) => {
+      let role = msg.getAttribute("data-message-author-role");
+      if (!role) {
+        if (msg.classList.contains("user") || msg.querySelector(".user")) role = "user";
+        else if (msg.classList.contains("assistant") || msg.querySelector(".assistant")) role = "assistant";
+        else if (msg.textContent?.includes("You") || msg.textContent?.includes("Siz")) role = "user";
+        else if (msg.textContent?.includes("ChatGPT") || msg.textContent?.includes("Assistant")) role = "assistant";
+        else {
+          const content = msg.textContent?.trim();
+          if (content && content.length > 0) {
+            role = content.length < 200 && content.includes("?") ? "user" : "assistant";
+          } else {
+            role = "unknown";
+          }
+        }
+      }
+      return role === "user" || role === "assistant";
+    });
+    debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
+    if (__DEV__) {
+      validMessages.forEach((msg, index) => {
+        const role = msg.getAttribute("data-message-author-role");
+        const content = msg.textContent?.substring(0, 30);
+        debugLog(`Message ${index} (${role}):`, content);
+      });
+    }
     const targetCount = keepLastN * 2;
-    if (messageContainers.length <= targetCount) {
-      debugLog("trimDOM: nothing to trim, messages", messageContainers.length, "targetCount", targetCount);
+    debugLog("trimDOM: keepLastN", keepLastN, "pairs, targetCount", targetCount, "messages");
+    if (validMessages.length <= targetCount) {
+      debugLog("trimDOM: nothing to trim, messages", validMessages.length, "targetCount", targetCount);
       return;
     }
-    const toRemove = messageContainers.slice(0, messageContainers.length - targetCount);
-    toRemove.forEach((msg) => msg.remove());
+    const toRemove = validMessages.slice(0, validMessages.length - targetCount);
+    debugLog("trimDOM: removing", toRemove.length, "messages, keeping", targetCount);
+    toRemove.forEach((msg) => {
+      const toolbars = msg.querySelectorAll(".z-0.flex.min-h-\\[46px\\].justify-start");
+      toolbars.forEach((toolbar) => toolbar.remove());
+      let wrapper = msg.closest(".flex.flex-col.gap-2");
+      if (!wrapper) {
+        wrapper = msg.closest('[data-testid*="conversation-turn"]');
+      }
+      if (!wrapper) {
+        wrapper = msg.parentElement;
+      }
+      if (wrapper) {
+        wrapper.remove();
+      } else {
+        msg.remove();
+      }
+    });
     debugLog("trimDOM: trimmed to last", keepLastN, "pairs, removed", toRemove.length, "messages");
   }
   window.fetch = async (input, init) => {
@@ -71,7 +153,7 @@
       }
       const clone = response.clone();
       const data = await clone.json();
-      const trimmed = trimConversation(data, settings.keepLastN);
+      const trimmed = trimConversation(data, settings.keepLastN * 2);
       if (!trimmed) {
         return response;
       }

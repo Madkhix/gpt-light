@@ -4,7 +4,7 @@
   var SETTINGS_KEY = "lightsession_settings";
   var DEFAULT_SETTINGS = {
     enabled: true,
-    keepLastN: 30,
+    keepLastN: 10,
     showIndicator: true,
     ultraLean: false
   };
@@ -36,8 +36,7 @@
   var enabledToggle = document.getElementById("toggle-enabled");
   var indicatorToggle = document.getElementById("toggle-indicator");
   var ultraToggle = document.getElementById("toggle-ultra");
-  var keepLastSlider = document.getElementById("keep-last");
-  var keepLastValue = document.getElementById("keep-last-value");
+  var keepLastInput = document.getElementById("keep-last");
   var refreshButton = document.getElementById("refresh-tab");
   var settings = DEFAULT_SETTINGS;
   initialize();
@@ -55,11 +54,26 @@
     ultraToggle.addEventListener("change", () => {
       updateSetting({ ultraLean: ultraToggle.checked });
     });
-    keepLastSlider.addEventListener("input", () => {
-      keepLastValue.textContent = keepLastSlider.value;
+    keepLastInput.addEventListener("input", () => {
+      let value = keepLastInput.value.replace(/[^0-9]/g, "");
+      if (value === "") {
+        value = "1";
+      }
+      const numValue = parseInt(value, 10);
+      if (numValue < 1) {
+        value = "1";
+      } else if (numValue > 100) {
+        value = "100";
+      }
+      keepLastInput.value = value;
     });
-    keepLastSlider.addEventListener("change", () => {
-      updateSetting({ keepLastN: Number(keepLastSlider.value) });
+    keepLastInput.addEventListener("change", () => {
+      const value = parseInt(keepLastInput.value, 10);
+      if (!isNaN(value) && value >= 1 && value <= 100) {
+        updateSetting({ keepLastN: value });
+      } else {
+        keepLastInput.value = String(settings.keepLastN);
+      }
     });
     refreshButton.addEventListener("click", () => {
       api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -74,8 +88,7 @@
     enabledToggle.checked = settings.enabled;
     indicatorToggle.checked = settings.showIndicator;
     ultraToggle.checked = settings.ultraLean;
-    keepLastSlider.value = String(settings.keepLastN);
-    keepLastValue.textContent = String(settings.keepLastN);
+    keepLastInput.value = String(settings.keepLastN);
   }
   function updateSetting(next) {
     settings = normalizeSettings({ ...settings, ...next });

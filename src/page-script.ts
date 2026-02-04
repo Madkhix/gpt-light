@@ -22,16 +22,16 @@ type ConversationPayload = {
 
 const excludedRoles = new Set(["system", "tool", "thinking"]);
 const originalFetch = window.fetch.bind(window);
-const __DEV__ = true;
+const __DEV__ = false;
 const debugLog = (...args: unknown[]) => {
   if (__DEV__) {
-    console.debug("[LightSession]", ...args);
+    console.log("[LightSession]", ...args);
   }
 };
 
 let settings: PageSettings = {
   enabled: true,
-  keepLastN: 30
+  keepLastN: 5
 };
 
 window.addEventListener("lightsession:settings", (event: Event) => {
@@ -53,37 +53,151 @@ setTimeout(() => {
   if (settings.enabled) {
     trimDOMToLastNMessages(settings.keepLastN);
   }
-}, 2000); // 2 saniye bekle
+}, 5000); // 5 saniye bekle
+
+// Yeni mesaj eklendiğinde otomatik trimming yap
+const observer = new MutationObserver((mutations) => {
+  if (!settings.enabled) return;
+  
+  let shouldTrim = false;
+  for (const mutation of mutations) {
+    if (mutation.type === 'childList') {
+      for (const addedNode of mutation.addedNodes) {
+        if (addedNode.nodeType === Node.ELEMENT_NODE) {
+          const element = addedNode as Element;
+          // Yeni mesaj container'ı eklendi mi kontrol et
+          if (element.matches('[data-message-author-role]') || 
+              element.matches('.min-h-8.text-message') ||
+              element.querySelector('[data-message-author-role]') ||
+              element.querySelector('.min-h-8.text-message')) {
+            shouldTrim = true;
+            break;
+          }
+        }
+      }
+    }
+    if (shouldTrim) break;
+  }
+  
+  if (shouldTrim) {
+    setTimeout(() => {
+      trimDOMToLastNMessages(settings.keepLastN);
+    }, 100); // Kısa bekleme mesajın tam yüklenmesi için
+  }
+});
+
+// Observer'ı başlat
+const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full');
+if (container) {
+  observer.observe(container, {
+    childList: true,
+    subtree: true
+  });
+} else {
+  // Container henüz yoksa, bekle ve tekrar dene
+  setTimeout(() => {
+    const lateContainer = document.querySelector('.group\\/thread.flex.flex-col.min-h-full');
+    if (lateContainer) {
+      observer.observe(lateContainer, {
+        childList: true,
+        subtree: true
+      });
+    }
+  }, 3000);
+}
 
 function trimDOMToLastNMessages(keepLastN: number) {
-  const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full');
+  // Container'ı dynamic olarak bul
+  const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full') || 
+                   document.querySelector('#thread') ||
+                   document.querySelector('[id="thread"]');
+  
   if (!container) {
     if (__DEV__) debugLog("trimDOM: conversation container not found");
     return;
   }
 
-  // Farklı selector'ları dene
-  let messageContainers = Array.from(container.querySelectorAll('[data-message-author-role]'));
-  if (messageContainers.length === 0) {
-    messageContainers = Array.from(container.querySelectorAll('.min-h-8.text-message'));
+  // Tüm mesaj container'larını al
+  let allMessages = Array.from(container.querySelectorAll('[data-message-author-role]'));
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('.min-h-8.text-message'));
   }
-  if (messageContainers.length === 0) {
-    messageContainers = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
   }
 
-  debugLog("trimDOM: found", messageContainers.length, "message containers");
-  debugLog("trimDOM: keepLastN", keepLastN, "targetCount", keepLastN * 2);
+  debugLog("trimDOM: found", allMessages.length, "message containers");
   
-  const targetCount = keepLastN * 2; // keepLastN çifti = keepLastN * 2 mesaj
+  // Mesajları role'lerine göre filtrele ve sırala
+  const validMessages = allMessages.filter(msg => {
+    // Farklı yöntemlerle role'ı bul
+    let role = msg.getAttribute('data-message-author-role');
+    if (!role) {
+      // Class'larda role bilgisi var mı kontrol et
+      if (msg.classList.contains('user') || msg.querySelector('.user')) role = 'user';
+      else if (msg.classList.contains('assistant') || msg.querySelector('.assistant')) role = 'assistant';
+      else if (msg.textContent?.includes('You') || msg.textContent?.includes('Siz')) role = 'user';
+      else if (msg.textContent?.includes('ChatGPT') || msg.textContent?.includes('Assistant')) role = 'assistant';
+      else {
+        // Varsayılan: mesaj içeriğine göre tahmin et
+        const content = msg.textContent?.trim();
+        if (content && content.length > 0) {
+          // Eğer mesaj kısa ve soru ise user, uzun ve cevap ise assistant
+          role = content.length < 200 && content.includes('?') ? 'user' : 'assistant';
+        } else {
+          role = 'unknown';
+        }
+      }
+    }
+    return role === 'user' || role === 'assistant';
+  });
+
+  debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
   
-  if (messageContainers.length <= targetCount) {
-    debugLog("trimDOM: nothing to trim, messages", messageContainers.length, "targetCount", targetCount);
+  // Tüm mesaj container'larını logla
+  if (__DEV__) {
+    validMessages.forEach((msg, index) => {
+      const role = msg.getAttribute('data-message-author-role');
+      const content = msg.textContent?.substring(0, 30);
+      debugLog(`Message ${index} (${role}):`, content);
+    });
+  }
+  
+  // keepLastN mesaj çifti demek, yani keepLastN * 2 mesaj göster
+  const targetCount = keepLastN * 2;
+  debugLog("trimDOM: keepLastN", keepLastN, "pairs, targetCount", targetCount, "messages");
+  
+  if (validMessages.length <= targetCount) {
+    debugLog("trimDOM: nothing to trim, messages", validMessages.length, "targetCount", targetCount);
     return;
   }
 
   // Son targetCount mesajı koru, gerisini sil
-  const toRemove = messageContainers.slice(0, messageContainers.length - targetCount);
-  toRemove.forEach(msg => msg.remove());
+  const toRemove = validMessages.slice(0, validMessages.length - targetCount);
+  
+  debugLog("trimDOM: removing", toRemove.length, "messages, keeping", targetCount);
+  
+  // Silinecek mesajların ve toolbar'larını temizle
+  toRemove.forEach(msg => {
+    // Sadece silinen mesajın içindeki toolbar'ları temizle
+    const toolbars = msg.querySelectorAll('.z-0.flex.min-h-\\[46px\\].justify-start');
+    toolbars.forEach(toolbar => toolbar.remove());
+    
+    // Mesajı ve wrapper'ını sil
+    let wrapper = msg.closest('.flex.flex-col.gap-2');
+    if (!wrapper) {
+      wrapper = msg.closest('[data-testid*="conversation-turn"]');
+    }
+    if (!wrapper) {
+      wrapper = msg.parentElement;
+    }
+    
+    if (wrapper) {
+      wrapper.remove();
+    } else {
+      msg.remove();
+    }
+  });
 
   debugLog("trimDOM: trimmed to last", keepLastN, "pairs, removed", toRemove.length, "messages");
 }
@@ -107,7 +221,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
 
     const clone = response.clone();
     const data = (await clone.json()) as ConversationPayload;
-    const trimmed = trimConversation(data, settings.keepLastN);
+    const trimmed = trimConversation(data, settings.keepLastN * 2); // keepLastN çifti = keepLastN * 2 mesaj
     if (!trimmed) {
       return response;
     }

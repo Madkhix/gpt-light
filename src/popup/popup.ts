@@ -6,8 +6,7 @@ const api = getExtensionApi();
 const enabledToggle = document.getElementById("toggle-enabled") as HTMLInputElement;
 const indicatorToggle = document.getElementById("toggle-indicator") as HTMLInputElement;
 const ultraToggle = document.getElementById("toggle-ultra") as HTMLInputElement;
-const keepLastSlider = document.getElementById("keep-last") as HTMLInputElement;
-const keepLastValue = document.getElementById("keep-last-value") as HTMLSpanElement;
+const keepLastInput = document.getElementById("keep-last") as HTMLInputElement;
 const refreshButton = document.getElementById("refresh-tab") as HTMLButtonElement;
 
 let settings = DEFAULT_SETTINGS;
@@ -32,12 +31,34 @@ function initialize() {
     updateSetting({ ultraLean: ultraToggle.checked });
   });
 
-  keepLastSlider.addEventListener("input", () => {
-    keepLastValue.textContent = keepLastSlider.value;
+  keepLastInput.addEventListener("input", () => {
+    // Sadece sayı girilmesini sağla
+    let value = keepLastInput.value.replace(/[^0-9]/g, '');
+    
+    // Boşsa 1 yap
+    if (value === '') {
+      value = '1';
+    }
+    
+    // Min/max kontrolü
+    const numValue = parseInt(value, 10);
+    if (numValue < 1) {
+      value = '1';
+    } else if (numValue > 100) {
+      value = '100';
+    }
+    
+    keepLastInput.value = value;
   });
 
-  keepLastSlider.addEventListener("change", () => {
-    updateSetting({ keepLastN: Number(keepLastSlider.value) });
+  keepLastInput.addEventListener("change", () => {
+    const value = parseInt(keepLastInput.value, 10);
+    if (!isNaN(value) && value >= 1 && value <= 100) {
+      updateSetting({ keepLastN: value });
+    } else {
+      // Geçersiz değerse varsayılana döndür
+      keepLastInput.value = String(settings.keepLastN);
+    }
   });
 
   refreshButton.addEventListener("click", () => {
@@ -54,8 +75,7 @@ function render() {
   enabledToggle.checked = settings.enabled;
   indicatorToggle.checked = settings.showIndicator;
   ultraToggle.checked = settings.ultraLean;
-  keepLastSlider.value = String(settings.keepLastN);
-  keepLastValue.textContent = String(settings.keepLastN);
+  keepLastInput.value = String(settings.keepLastN);
 }
 
 function updateSetting(next: Partial<LightSessionSettings>) {
