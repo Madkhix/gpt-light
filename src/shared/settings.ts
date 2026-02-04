@@ -9,7 +9,7 @@ export const SETTINGS_KEY = "lightsession_settings";
 
 export const DEFAULT_SETTINGS: LightSessionSettings = {
   enabled: true,
-  keepLastN: 10,
+  keepLastN: 5,
   showIndicator: true,
   ultraLean: false
 };

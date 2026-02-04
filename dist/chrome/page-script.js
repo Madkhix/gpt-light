@@ -104,6 +104,16 @@
       return role === "user" || role === "assistant";
     });
     debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
+    let firstUserIndex = -1;
+    for (let i = 0; i < validMessages.length; i++) {
+      const role = validMessages[i].getAttribute("data-message-author-role");
+      if (role === "user") {
+        firstUserIndex = i;
+        break;
+      }
+    }
+    const messagesToConsider = firstUserIndex >= 0 ? validMessages.slice(firstUserIndex) : validMessages;
+    debugLog("trimDOM: first user message at index", firstUserIndex, "considering", messagesToConsider.length, "messages");
     if (__DEV__) {
       validMessages.forEach((msg, index) => {
         const role = msg.getAttribute("data-message-author-role");
@@ -111,13 +121,13 @@
         debugLog(`Message ${index} (${role}):`, content);
       });
     }
-    const targetCount = keepLastN * 2;
-    debugLog("trimDOM: keepLastN", keepLastN, "pairs, targetCount", targetCount, "messages");
-    if (validMessages.length <= targetCount) {
-      debugLog("trimDOM: nothing to trim, messages", validMessages.length, "targetCount", targetCount);
+    const targetCount = keepLastN + 1;
+    debugLog("trimDOM: keepLastN", keepLastN, "messages, targetCount", targetCount, "messages");
+    if (messagesToConsider.length <= targetCount) {
+      debugLog("trimDOM: nothing to trim, messages", messagesToConsider.length, "targetCount", targetCount);
       return;
     }
-    const toRemove = validMessages.slice(0, validMessages.length - targetCount);
+    const toRemove = messagesToConsider.slice(0, messagesToConsider.length - targetCount);
     debugLog("trimDOM: removing", toRemove.length, "messages, keeping", targetCount);
     toRemove.forEach((msg) => {
       const toolbars = msg.querySelectorAll(".z-0.flex.min-h-\\[46px\\].justify-start");
@@ -135,7 +145,7 @@
         msg.remove();
       }
     });
-    debugLog("trimDOM: trimmed to last", keepLastN, "pairs, removed", toRemove.length, "messages");
+    debugLog("trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
   }
   window.fetch = async (input, init) => {
     const response = await originalFetch(input, init);
@@ -153,7 +163,7 @@
       }
       const clone = response.clone();
       const data = await clone.json();
-      const trimmed = trimConversation(data, settings.keepLastN * 2);
+      const trimmed = trimConversation(data, settings.keepLastN + 1);
       if (!trimmed) {
         return response;
       }

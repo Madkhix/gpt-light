@@ -154,6 +154,23 @@ function trimDOMToLastNMessages(keepLastN: number) {
 
   debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
   
+  // İlk user mesajını bul ve oradan başla
+  let firstUserIndex = -1;
+  for (let i = 0; i < validMessages.length; i++) {
+    const role = validMessages[i].getAttribute('data-message-author-role');
+    if (role === 'user') {
+      firstUserIndex = i;
+      break;
+    }
+  }
+  
+  // Eğer user mesajı bulunduysa, o mesajdan başla
+  const messagesToConsider = firstUserIndex >= 0 ? 
+    validMessages.slice(firstUserIndex) : 
+    validMessages;
+    
+  debugLog("trimDOM: first user message at index", firstUserIndex, "considering", messagesToConsider.length, "messages");
+  
   // Tüm mesaj container'larını logla
   if (__DEV__) {
     validMessages.forEach((msg, index) => {
@@ -163,17 +180,17 @@ function trimDOMToLastNMessages(keepLastN: number) {
     });
   }
   
-  // keepLastN mesaj çifti demek, yani keepLastN * 2 mesaj göster
-  const targetCount = keepLastN * 2;
-  debugLog("trimDOM: keepLastN", keepLastN, "pairs, targetCount", targetCount, "messages");
+  // keepLastN doğrudan mesaj sayısı
+  const targetCount = keepLastN + 1;
+  debugLog("trimDOM: keepLastN", keepLastN, "messages, targetCount", targetCount, "messages");
   
-  if (validMessages.length <= targetCount) {
-    debugLog("trimDOM: nothing to trim, messages", validMessages.length, "targetCount", targetCount);
+  if (messagesToConsider.length <= targetCount) {
+    debugLog("trimDOM: nothing to trim, messages", messagesToConsider.length, "targetCount", targetCount);
     return;
   }
 
   // Son targetCount mesajı koru, gerisini sil
-  const toRemove = validMessages.slice(0, validMessages.length - targetCount);
+  const toRemove = messagesToConsider.slice(0, messagesToConsider.length - targetCount);
   
   debugLog("trimDOM: removing", toRemove.length, "messages, keeping", targetCount);
   
@@ -199,7 +216,7 @@ function trimDOMToLastNMessages(keepLastN: number) {
     }
   });
 
-  debugLog("trimDOM: trimmed to last", keepLastN, "pairs, removed", toRemove.length, "messages");
+  debugLog("trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
 }
 
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -221,7 +238,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
 
     const clone = response.clone();
     const data = (await clone.json()) as ConversationPayload;
-    const trimmed = trimConversation(data, settings.keepLastN * 2); // keepLastN çifti = keepLastN * 2 mesaj
+    // keepLastN doğrudan mesaj sayısı
+    const trimmed = trimConversation(data, settings.keepLastN + 1);
     if (!trimmed) {
       return response;
     }

@@ -4,7 +4,7 @@
   var SETTINGS_KEY = "lightsession_settings";
   var DEFAULT_SETTINGS = {
     enabled: true,
-    keepLastN: 10,
+    keepLastN: 5,
     showIndicator: true,
     ultraLean: false
   };
