@@ -1,0 +1,20 @@
+{
+  "name": "lightsession",
+  "version": "0.1.0",
+  "description": "LightSession for ChatGPT - trim long conversations in the DOM for performance.",
+  "private": true,
+  "scripts": {
+    "build:chrome": "node esbuild.config.mjs chrome",
+    "build:firefox": "node esbuild.config.mjs firefox",
+    "build": "node esbuild.config.mjs all",
+    "typecheck": "tsc --noEmit",
+    "test:lightsession": "ts-node scripts/light-session.test.ts"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.251",
+    "@types/node": "^25.1.0",
+    "esbuild": "^0.21.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}

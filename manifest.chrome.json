@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "LightSession for ChatGPT",
+  "version": "0.1.0",
+  "description": "Trim ChatGPT conversations in the DOM to keep the UI fast.",
+  "action": {
+    "default_title": "LightSession",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-script.js"],
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
+    }
+  ]
+}

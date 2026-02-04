@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LightSession</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <h1>LightSession</h1>
+        <p>Trim ChatGPT conversations to keep the UI fast.</p>
+      </header>
+
+      <section class="popup__section" aria-label="Controls">
+        <label class="toggle">
+          <input type="checkbox" id="toggle-enabled" />
+          <span>Enable LightSession</span>
+        </label>
+
+        <div class="slider">
+          <label for="keep-last">Keep last <span id="keep-last-value">30</span> messages</label>
+          <input type="range" id="keep-last" min="1" max="100" step="1" />
+        </div>
+
+        <label class="toggle">
+          <input type="checkbox" id="toggle-indicator" />
+          <span>Show status indicator</span>
+        </label>
+
+        <label class="toggle">
+          <input type="checkbox" id="toggle-ultra" />
+          <span>Ultra Lean Mode (CSS only)</span>
+        </label>
+      </section>
+
+      <section class="popup__section" aria-label="Actions">
+        <button id="refresh-tab" type="button">Refresh ChatGPT tab</button>
+      </section>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

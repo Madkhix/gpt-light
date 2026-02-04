@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #101010;
+  background: #f5f4f2;
+}
+
+body {
+  margin: 0;
+  min-width: 280px;
+}
+
+.popup {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.popup__header h1 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.popup__header p {
+  margin: 0;
+  color: #4a4a4a;
+}
+
+.popup__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #101010;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #6f6fd6;
+  outline-offset: 2px;
+}
