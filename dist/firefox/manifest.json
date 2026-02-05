@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "LightSession for ChatGPT",
-  "version": "0.2.1",
-  "description": "Trim ChatGPT conversations in the DOM to keep the UI fast.",
+  "version": "0.3.0",
+  "description": "LightSession for ChatGPT - trim long conversations in the DOM for performance. Keep the UI fast.",
   "action": {
     "default_title": "LightSession",
     "default_popup": "popup.html"

@@ -1,4 +1,4 @@
-# LightSession for ChatGPT
+# LightSession for ChatGPT v0.3.0
 
 LightSession is a lightweight browser extension that improves ChatGPT UI performance by trimming long conversations **at render time**. It keeps only the last *N* messages in the DOM while preserving the full conversation on OpenAI servers. Reloading the page restores the full history.
 

@@ -1,6 +1,6 @@
 {
   "name": "lightsession",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "LightSession for ChatGPT - trim long conversations in the DOM for performance.",
   "private": true,
   "scripts": {
