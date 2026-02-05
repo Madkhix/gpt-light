@@ -41,15 +41,16 @@ window.addEventListener("lightsession:settings", (event: Event) => {
   if (!customEvent.detail) {
     return;
   }
-  settings = {
-    enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings.enabled,
-    keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN),
-    autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings.autoTrim
-  };
-  // Manuel ayar değişimi sadece auto trim kapalıysa çalışsın
-  if (settings.enabled && !settings.autoTrim) {
-    trimDOMToLastNMessages(settings.keepLastN);
-  }
+  settings = customEvent.detail;
+  debugLog("settings updated", settings);
+});
+
+// Manuel trim için dinleyici
+window.addEventListener("lightsession:trim-now", (event: Event) => {
+  if (__DEV__) debugLog("manual trim triggered");
+  
+  // Auto trim ile aynı mantığı kullan
+  trimDOMToLastNMessages(settings.keepLastN);
 });
 
 // Sayfa yüklendikten sonra ilk trimming

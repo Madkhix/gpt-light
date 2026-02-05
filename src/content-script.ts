@@ -13,9 +13,9 @@ let indicator: HTMLDivElement | null = null;
 
 initializeSettings();
 
-// Sayfa yüklendikten sonra settings’i gönder
+// Sayfa yüklendikten sonra settings'i gönder
 setTimeout(() => {
-  chrome.storage.local.get([SETTINGS_KEY], (result) => {
+  api.storage.local.get([SETTINGS_KEY], (result) => {
     const settings = normalizeSettings(result[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
     const event = new CustomEvent("lightsession:settings", {
       detail: settings
@@ -30,6 +30,30 @@ api.storage.onChanged.addListener((changes: StorageChanges, areaName: StorageAre
   }
   const next = normalizeSettings(changes[SETTINGS_KEY].newValue as Partial<LightSessionSettings> | null | undefined);
   applySettings(next);
+});
+
+// Background script'ten gelen mesajları dinle
+api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
+  if (__DEV__) console.log('[LightSession Content] Message received:', message);
+  
+  if (message.type === 'lightsession:toggle') {
+    if (__DEV__) console.log('[LightSession Content] Processing toggle message');
+    currentSettings.enabled = message.enabled;
+    dispatchSettings(currentSettings);
+    updateIndicator(currentSettings);
+    sendResponse({ success: true, action: 'toggle' });
+  } else if (message.type === 'lightsession:trim-now') {
+    if (__DEV__) console.log('[LightSession Content] Processing trim-now message');
+    // Trim olayını page script'e gönder
+    const event = new CustomEvent("lightsession:trim-now");
+    window.dispatchEvent(event);
+    sendResponse({ success: true, action: 'trim' });
+  } else {
+    if (__DEV__) console.log('[LightSession Content] Unknown message type:', message.type);
+    sendResponse({ success: false, error: 'Unknown message type' });
+  }
+  
+  return true; // Async response için gerekli
 });
 
 function injectPageScript() {

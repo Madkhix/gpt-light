@@ -46,8 +46,8 @@ async function buildTarget(target) {
     target: "es2020",
     format: "iife",
     define: {
-      "process.env.NODE_ENV": '"production"',
-      "__DEV__": "false" // Production için debug log'ları kapat
+      "process.env.NODE_ENV": '"development"',
+      "__DEV__": "true" // Development için debug log'ları açık
     }
   });
 

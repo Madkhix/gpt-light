@@ -19,15 +19,15 @@
     },
     "trim-now": {
       "suggested_key": {
-        "default": "Ctrl+Shift+T",
-        "mac": "Command+Shift+T"
+        "default": "Ctrl+Shift+2",
+        "mac": "Command+Shift+2"
       },
       "description": "Trim conversation now"
     },
     "open-popup": {
       "suggested_key": {
-        "default": "Ctrl+Shift+P",
-        "mac": "Command+Shift+P"
+        "default": "Ctrl+Shift+1",
+        "mac": "Command+Shift+1"
       },
       "description": "Open LightSession popup"
     }
@@ -44,7 +44,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["page-script.js"],
+      "resources": ["page-script.js", "views/installed.html", "views/updated.html"],
       "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"]
     }
   ]

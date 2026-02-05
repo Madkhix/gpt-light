@@ -56,7 +56,7 @@
   var indicator = null;
   initializeSettings();
   setTimeout(() => {
-    chrome.storage.local.get([SETTINGS_KEY], (result) => {
+    api.storage.local.get([SETTINGS_KEY], (result) => {
       const settings = normalizeSettings(result[SETTINGS_KEY]);
       const event = new CustomEvent("lightsession:settings", {
         detail: settings
@@ -70,6 +70,25 @@
     }
     const next = normalizeSettings(changes[SETTINGS_KEY].newValue);
     applySettings(next);
+  });
+  api.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (false) console.log("[LightSession Content] Message received:", message);
+    if (message.type === "lightsession:toggle") {
+      if (false) console.log("[LightSession Content] Processing toggle message");
+      currentSettings.enabled = message.enabled;
+      dispatchSettings(currentSettings);
+      updateIndicator(currentSettings);
+      sendResponse({ success: true, action: "toggle" });
+    } else if (message.type === "lightsession:trim-now") {
+      if (false) console.log("[LightSession Content] Processing trim-now message");
+      const event = new CustomEvent("lightsession:trim-now");
+      window.dispatchEvent(event);
+      sendResponse({ success: true, action: "trim" });
+    } else {
+      if (false) console.log("[LightSession Content] Unknown message type:", message.type);
+      sendResponse({ success: false, error: "Unknown message type" });
+    }
+    return true;
   });
   function injectPageScript() {
     const script = document.createElement("script");

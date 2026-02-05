@@ -6,14 +6,14 @@ const api = getExtensionApi();
 api.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') {
     // Installation - show onboarding
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('views/installed.html'),
+    api.tabs.create({
+      url: api.runtime.getURL('installed.html'),
       active: true
     });
   } else if (reason === 'update') {
     // Update - show update page
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('views/updated.html'),
+    api.tabs.create({
+      url: api.runtime.getURL('updated.html'),
       active: true
     });
   }
@@ -24,6 +24,19 @@ api.runtime.onInstalled.addListener(({ reason }) => {
       return;
     }
     api.storage.local.set({ [SETTINGS_KEY]: DEFAULT_SETTINGS });
+  });
+
+  // Content script'ten gelen mesajları dinle
+  api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
+    console.log('[LightSession Background] Message received:', message);
+    try {
+      if (message.type === 'lightsession:ready') {
+        sendResponse({ settings: DEFAULT_SETTINGS });
+        return true;
+      }
+    } catch (error) {
+      console.error('[LightSession Background] Message error:', error);
+    }
   });
 });
 
@@ -55,17 +68,29 @@ function toggleExtension() {
           type: "lightsession:toggle",
           enabled: updated.enabled
         });
+        
+        // Brave için ek kontrol - sayfayı yenile
+        if (updated.enabled) {
+          api.tabs.reload(tabs[0].id!);
+        }
       }
     });
   });
 }
 
 function trimNow() {
+  if (__DEV__) console.log('[LightSession Background] trimNow() called');
   api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (__DEV__) console.log('[LightSession Background] Current tabs:', tabs);
     if (tabs[0]?.id) {
+      if (__DEV__) console.log('[LightSession Background] Sending trim message to tab:', tabs[0].id);
       api.tabs.sendMessage(tabs[0].id, {
         type: "lightsession:trim-now"
+      }, (response) => {
+        if (__DEV__) console.log('[LightSession Background] Message response:', response);
       });
+    } else {
+      if (__DEV__) console.log('[LightSession Background] No active tab found');
     }
   });
 }

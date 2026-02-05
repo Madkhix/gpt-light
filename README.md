@@ -107,6 +107,50 @@ npm install
 npm install
 ```
 
+2. Development build (with debug logs):
+```bash
+npm run build:dev
+```
+
+3. Production build (clean, no debug logs):
+```bash
+npm run build
+```
+
+### Firefox Testing
+1. Build Firefox version:
+```bash
+npm run build:firefox
+```
+
+2. Load in Firefox:
+   - Open Firefox
+   - Go to `about:debugging`
+   - Click "Load Temporary Add-on"
+   - Select `dist/firefox/` directory
+   - Test on https://chat.openai.com or https://chatgpt.com
+
+### Chrome Testing
+1. Build Chrome version:
+```bash
+npm run build:chrome
+```
+
+2. Load in Chrome:
+   - Open Chrome
+   - Go to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select `dist/chrome/` directory
+   - Test on https://chat.openai.com or https://chatgpt.com
+
+### Keyboard Shortcuts
+- **Ctrl+Shift+L** - Toggle extension on/off
+- **Ctrl+Shift+1** - Open settings popup
+- **Ctrl+Shift+2** - Trim messages now
+
+**Note:** Shortcuts work on any ChatGPT page in both Chrome and Firefox.
+
 2. Build for all platforms:
 ```bash
 npm run build

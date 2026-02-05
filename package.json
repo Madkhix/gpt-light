@@ -7,6 +7,7 @@
     "build:chrome": "node esbuild.config.mjs chrome",
     "build:firefox": "node esbuild.config.mjs firefox",
     "build": "node esbuild.config.mjs all",
+    "build:dev": "node esbuild.config.dev.mjs all",
     "typecheck": "tsc --noEmit",
     "test:lightsession": "ts-node scripts/light-session.test.ts"
   },

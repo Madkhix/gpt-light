@@ -19,14 +19,12 @@
     if (!customEvent.detail) {
       return;
     }
-    settings = {
-      enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings.enabled,
-      keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN),
-      autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings.autoTrim
-    };
-    if (settings.enabled && !settings.autoTrim) {
-      trimDOMToLastNMessages(settings.keepLastN);
-    }
+    settings = customEvent.detail;
+    debugLog("settings updated", settings);
+  });
+  window.addEventListener("lightsession:trim-now", (event) => {
+    if (__DEV__) debugLog("manual trim triggered");
+    trimDOMToLastNMessages(settings.keepLastN);
   });
   setTimeout(() => {
     if (settings.enabled && settings.autoTrim) {
@@ -284,11 +282,5 @@
       return null;
     }
     return null;
-  }
-  function clampNumber(value, min, max, fallback) {
-    if (typeof value !== "number" || Number.isNaN(value)) {
-      return fallback;
-    }
-    return Math.min(max, Math.max(min, Math.round(value)));
   }
 })();
