@@ -9,6 +9,29 @@
   },
   "permissions": ["storage", "tabs"],
   "host_permissions": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+  "commands": {
+    "toggle-extension": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+L",
+        "mac": "Command+Shift+L"
+      },
+      "description": "Toggle LightSession on/off"
+    },
+    "trim-now": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+T",
+        "mac": "Command+Shift+T"
+      },
+      "description": "Trim conversation now"
+    },
+    "open-popup": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Open LightSession popup"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },

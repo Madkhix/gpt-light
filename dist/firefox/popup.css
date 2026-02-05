@@ -10,6 +10,7 @@
 body {
   margin: 0;
   min-width: 280px;
+  max-width: 400px;
 }
 
 .popup {
@@ -17,6 +18,48 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Material Design mobile optimizations */
+@media (max-width: 480px) {
+  body {
+    min-width: 320px;
+    max-width: 100vw;
+  }
+  
+  .popup {
+    padding: 24px;
+    gap: 20px;
+  }
+  
+  .toggle-container {
+    padding: 16px 0;
+  }
+  
+  .number-input {
+    width: 100%;
+    height: 56px;
+    font-size: 16px;
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  .btn {
+    height: 56px;
+    font-size: 16px;
+    padding: 16px 24px;
+    border-radius: 12px;
+  }
+  
+  .toggle-switch {
+    width: 52px;
+    height: 32px;
+  }
+  
+  .toggle-slider {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .popup__header h1 {

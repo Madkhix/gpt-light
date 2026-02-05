@@ -9,6 +9,9 @@ LightSession is a lightweight browser extension that improves ChatGPT UI perform
 - **Configurable** message limit (1–100)
 - **Auto Trim Toggle** - enable/disable automatic trimming
 - **Dark Mode** - popup theme matching system preference
+- **Keyboard Shortcuts** - Ctrl+Shift+L (toggle), Ctrl+Shift+T (trim), Ctrl+Shift+P (popup)
+- **Onboarding & Update Pages** - user-friendly welcome and update notifications
+- **Firefox Data Collection Consent** - AMO compliant privacy settings
 - **Optional status indicator**
 - **Ultra Lean Mode** (CSS-only reduction of animations)
 - **100% local** — no telemetry, no external requests
@@ -80,23 +83,69 @@ All tests should show ✅ PASS.
 
 ## Build
 
+### Prerequisites
+- Node.js 18.0+ and npm
+- Operating System: Windows, macOS, or Linux
+- Required packages: esbuild 0.21.5+, TypeScript 5.9.3+
+
+### Installation
+```bash
+# Install Node.js from https://nodejs.org/ (version 18.0 or higher)
+# Verify installation:
+node --version
+npm --version
+
+# Clone and install dependencies:
+git clone <repository-url>
+cd lightsession
+npm install
+```
+
+### Build Instructions
+1. Install dependencies:
 ```bash
 npm install
+```
+
+2. Build for all platforms:
+```bash
 npm run build
 ```
 
-Build output:
+3. Build for specific platform:
+```bash
+npm run build:chrome    # Chrome Web Store
+npm run build:firefox   # Firefox AMO
+```
 
-- `dist/chrome/`
-- `dist/firefox/`
+### Build Process
+The build process uses esbuild to:
+- Compile TypeScript to JavaScript
+- Bundle multiple files into single outputs
+- Minify and optimize code
+- Generate platform-specific manifests
 
-Load the folder for your target browser in the extension manager.
+### Build Script Details
+- **esbuild.config.mjs** - Main build configuration
+- **TypeScript compiler** - Type checking and compilation
+- **Node.js 18.0+** - Runtime environment
+- **npm** - Package manager and dependency resolution
 
-## Development
+### Build Output
+- `dist/chrome/` - Chrome Web Store ready package
+- `dist/firefox/` - Firefox AMO ready package
 
+### Development
 ```bash
 npm run typecheck
+npm run test:lightsession
 ```
+
+### Source Code Structure
+- `src/` - TypeScript source files (not minified, not bundled)
+- `dist/` - Built/compiled files (for distribution only)
+- `manifest.chrome.json` - Chrome-specific manifest
+- `manifest.firefox.json` - Firefox-specific manifest
 
 ## Security & privacy
 

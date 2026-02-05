@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LightSession Updated</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            background: #667eea;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        h1 {
+            margin: 0 0 20px 0;
+            color: #333;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .version {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        .features {
+            text-align: left;
+            margin: 20px 0;
+        }
+        
+        .feature {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 15px;
+            background: #667eea;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .new-badge {
+            background: #10b981;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #333;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-secondary:hover {
+            background: #f1f5f9;
+            transform: translateY(-2px);
+        }
+        
+        .footer {
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">LS</div>
+        <h1>LightSession Updated!</h1>
+        <div class="version">Version 0.2.1</div>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">⌨️</div>
+                <div>
+                    <strong>Keyboard Shortcuts Added</strong><br>
+                    <small>Quick access to all features</small>
+                    <span class="new-badge">NEW</span>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <div>
+                    <strong>Firefox Data Consent</strong><br>
+                    <small>Privacy-compliant data collection policies</small>
+                    <span class="new-badge">NEW</span>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">🐛</div>
+                <div>
+                    <strong>Bug Fixes</strong><br>
+                    <small>Improved message counting and toolbar cleanup</small>
+                    <span class="new-badge">NEW</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn btn-primary" id="continue">Continue to ChatGPT</button>
+            <button class="btn btn-secondary" id="settings">Settings</button>
+        </div>
+        
+        <div class="footer">
+            <p>LightSession is 100% local and never sends your data anywhere.</p>
+            <p>
+                Need help? Visit <a href="#" target="_blank">Support</a> | 
+                <a href="#" target="_blank">GitHub</a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('continue').addEventListener('click', () => {
+            // Close this tab and open ChatGPT
+            chrome.tabs.create({ url: 'https://chat.openai.com' });
+            window.close();
+        });
+        
+        document.getElementById('settings').addEventListener('click', () => {
+            chrome.runtime.openOptionsPage();
+        });
+    </script>
+</body>
+</html>

@@ -10,7 +10,7 @@
   "permissions": ["storage", "tabs"],
   "host_permissions": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
   "background": {
-    "service_worker": "background.js"
+    "scripts": ["background.js"]
   },
   "content_scripts": [
     {
@@ -27,8 +27,12 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "lightsession@example.com",
-      "strict_min_version": "120.0"
+      "id": "lightsession-8f5a3d1e@example.com",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": ["locationInfo"],
+        "optional": ["technicalAndInteraction"]
+      }
     }
   }
 }
