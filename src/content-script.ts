@@ -58,7 +58,8 @@ function dispatchSettings(next: LightSessionSettings) {
   const event = new CustomEvent("lightsession:settings", {
     detail: {
       enabled: next.enabled,
-      keepLastN: next.keepLastN
+      keepLastN: next.keepLastN,
+      autoTrim: next.autoTrim
     }
   });
   window.dispatchEvent(event);

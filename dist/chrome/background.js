@@ -4,9 +4,11 @@
   var SETTINGS_KEY = "lightsession_settings";
   var DEFAULT_SETTINGS = {
     enabled: true,
-    keepLastN: 5,
+    keepLastN: 4,
     showIndicator: true,
-    ultraLean: false
+    ultraLean: false,
+    darkMode: true,
+    autoTrim: true
   };
 
   // src/shared/extension-api.ts

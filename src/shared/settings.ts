@@ -3,15 +3,19 @@ export type LightSessionSettings = {
   keepLastN: number;
   showIndicator: boolean;
   ultraLean: boolean;
+  darkMode: boolean;
+  autoTrim: boolean;
 };
 
 export const SETTINGS_KEY = "lightsession_settings";
 
 export const DEFAULT_SETTINGS: LightSessionSettings = {
   enabled: true,
-  keepLastN: 5,
+  keepLastN: 4,
   showIndicator: true,
-  ultraLean: false
+  ultraLean: false,
+  darkMode: true,
+  autoTrim: true
 };
 
 export function normalizeSettings(input: Partial<LightSessionSettings> | null | undefined): LightSessionSettings {
@@ -19,7 +23,9 @@ export function normalizeSettings(input: Partial<LightSessionSettings> | null | 
     enabled: typeof input?.enabled === "boolean" ? input.enabled : DEFAULT_SETTINGS.enabled,
     keepLastN: clampNumber(input?.keepLastN, 1, 100, DEFAULT_SETTINGS.keepLastN),
     showIndicator: typeof input?.showIndicator === "boolean" ? input.showIndicator : DEFAULT_SETTINGS.showIndicator,
-    ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean
+    ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean,
+    darkMode: typeof input?.darkMode === "boolean" ? input.darkMode : DEFAULT_SETTINGS.darkMode,
+    autoTrim: typeof input?.autoTrim === "boolean" ? input.autoTrim : DEFAULT_SETTINGS.autoTrim
   };
 }
 

@@ -6,6 +6,8 @@ const api = getExtensionApi();
 const enabledToggle = document.getElementById("toggle-enabled") as HTMLInputElement;
 const indicatorToggle = document.getElementById("toggle-indicator") as HTMLInputElement;
 const ultraToggle = document.getElementById("toggle-ultra") as HTMLInputElement;
+const darkToggle = document.getElementById("toggle-dark") as HTMLInputElement;
+const autoTrimToggle = document.getElementById("toggle-autotrim") as HTMLInputElement;
 const keepLastInput = document.getElementById("keep-last") as HTMLInputElement;
 const refreshButton = document.getElementById("refresh-tab") as HTMLButtonElement;
 
@@ -29,6 +31,14 @@ function initialize() {
 
   ultraToggle.addEventListener("change", () => {
     updateSetting({ ultraLean: ultraToggle.checked });
+  });
+
+  darkToggle.addEventListener("change", () => {
+    updateSetting({ darkMode: darkToggle.checked });
+  });
+
+  autoTrimToggle.addEventListener("change", () => {
+    updateSetting({ autoTrim: autoTrimToggle.checked });
   });
 
   keepLastInput.addEventListener("input", () => {
@@ -75,7 +85,16 @@ function render() {
   enabledToggle.checked = settings.enabled;
   indicatorToggle.checked = settings.showIndicator;
   ultraToggle.checked = settings.ultraLean;
+  darkToggle.checked = settings.darkMode;
+  autoTrimToggle.checked = settings.autoTrim;
   keepLastInput.value = String(settings.keepLastN);
+  
+  // Dark mode'u uygula
+  if (settings.darkMode) {
+    document.body.classList.add('dark');
+  } else {
+    document.body.classList.remove('dark');
+  }
 }
 
 function updateSetting(next: Partial<LightSessionSettings>) {

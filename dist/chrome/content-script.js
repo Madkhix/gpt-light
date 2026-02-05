@@ -4,16 +4,20 @@
   var SETTINGS_KEY = "lightsession_settings";
   var DEFAULT_SETTINGS = {
     enabled: true,
-    keepLastN: 5,
+    keepLastN: 4,
     showIndicator: true,
-    ultraLean: false
+    ultraLean: false,
+    darkMode: true,
+    autoTrim: true
   };
   function normalizeSettings(input) {
     return {
       enabled: typeof input?.enabled === "boolean" ? input.enabled : DEFAULT_SETTINGS.enabled,
       keepLastN: clampNumber(input?.keepLastN, 1, 100, DEFAULT_SETTINGS.keepLastN),
       showIndicator: typeof input?.showIndicator === "boolean" ? input.showIndicator : DEFAULT_SETTINGS.showIndicator,
-      ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean
+      ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean,
+      darkMode: typeof input?.darkMode === "boolean" ? input.darkMode : DEFAULT_SETTINGS.darkMode,
+      autoTrim: typeof input?.autoTrim === "boolean" ? input.autoTrim : DEFAULT_SETTINGS.autoTrim
     };
   }
   function clampNumber(value, min, max, fallback) {
@@ -90,7 +94,8 @@
     const event = new CustomEvent("lightsession:settings", {
       detail: {
         enabled: next.enabled,
-        keepLastN: next.keepLastN
+        keepLastN: next.keepLastN,
+        autoTrim: next.autoTrim
       }
     });
     window.dispatchEvent(event);

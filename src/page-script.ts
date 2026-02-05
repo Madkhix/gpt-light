@@ -1,6 +1,7 @@
 type PageSettings = {
   enabled: boolean;
   keepLastN: number;
+  autoTrim: boolean;
 };
 
 type ConversationNode = {
@@ -31,7 +32,8 @@ const debugLog = (...args: unknown[]) => {
 
 let settings: PageSettings = {
   enabled: true,
-  keepLastN: 5
+  keepLastN: 4,
+  autoTrim: true
 };
 
 window.addEventListener("lightsession:settings", (event: Event) => {
@@ -41,23 +43,25 @@ window.addEventListener("lightsession:settings", (event: Event) => {
   }
   settings = {
     enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings.enabled,
-    keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN)
+    keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN),
+    autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings.autoTrim
   };
-  if (settings.enabled) {
+  // Manuel ayar değişimi sadece auto trim kapalıysa çalışsın
+  if (settings.enabled && !settings.autoTrim) {
     trimDOMToLastNMessages(settings.keepLastN);
   }
 });
 
 // Sayfa yüklendikten sonra ilk trimming
 setTimeout(() => {
-  if (settings.enabled) {
+  if (settings.enabled && settings.autoTrim) {
     trimDOMToLastNMessages(settings.keepLastN);
   }
 }, 5000); // 5 saniye bekle
 
 // Yeni mesaj eklendiğinde otomatik trimming yap
 const observer = new MutationObserver((mutations) => {
-  if (!settings.enabled) return;
+  if (!settings.enabled || !settings.autoTrim) return;
   
   let shouldTrim = false;
   for (const mutation of mutations) {
@@ -154,19 +158,26 @@ function trimDOMToLastNMessages(keepLastN: number) {
 
   debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
   
-  // İlk user mesajını bul ve oradan başla
+  // İlk user mesajını bul ve oradan başla (bir önceki mesajı da al)
   let firstUserIndex = -1;
+  let firstAssistantIndex = -1;
+  
   for (let i = 0; i < validMessages.length; i++) {
     const role = validMessages[i].getAttribute('data-message-author-role');
-    if (role === 'user') {
-      firstUserIndex = i;
-      break;
+    if (role === 'user' && firstUserIndex === -1) {
+      firstUserIndex = Math.max(0, i - 1); // Bir önceki mesajı da al
+    }
+    if (role === 'assistant' && firstAssistantIndex === -1) {
+      firstAssistantIndex = i;
     }
   }
   
-  // Eğer user mesajı bulunduysa, o mesajdan başla
-  const messagesToConsider = firstUserIndex >= 0 ? 
-    validMessages.slice(firstUserIndex) : 
+  // Eğer user mesajı yoksa, ilk assistant'dan başla
+  const startIndex = firstUserIndex >= 0 ? firstUserIndex : firstAssistantIndex;
+  
+  // Eğer hiç mesaj bulunamazsa, en baştan başla
+  const messagesToConsider = startIndex >= 0 ? 
+    validMessages.slice(startIndex) : 
     validMessages;
     
   debugLog("trimDOM: first user message at index", firstUserIndex, "considering", messagesToConsider.length, "messages");
@@ -181,7 +192,7 @@ function trimDOMToLastNMessages(keepLastN: number) {
   }
   
   // keepLastN doğrudan mesaj sayısı
-  const targetCount = keepLastN + 1;
+  const targetCount = keepLastN ;
   debugLog("trimDOM: keepLastN", keepLastN, "messages, targetCount", targetCount, "messages");
   
   if (messagesToConsider.length <= targetCount) {
@@ -196,19 +207,30 @@ function trimDOMToLastNMessages(keepLastN: number) {
   
   // Silinecek mesajların ve toolbar'larını temizle
   toRemove.forEach(msg => {
-    // Sadece silinen mesajın içindeki toolbar'ları temizle
-    const toolbars = msg.querySelectorAll('.z-0.flex.min-h-\\[46px\\].justify-start');
-    toolbars.forEach(toolbar => toolbar.remove());
+    // DOĞRU wrapper'ı bul - toolbar'ı da içeren büyük container
+    let wrapper = null;
     
-    // Mesajı ve wrapper'ını sil
-    let wrapper = msg.closest('.flex.flex-col.gap-2');
+    // Role göre spesifik wrapper ara
+    const role = msg.getAttribute('data-message-author-role');
+    if (role === 'assistant') {
+      wrapper = msg.closest('.agent-turn');
+    } else if (role === 'user') {
+      // User mesajları .user-turn class'ı yok, group/turn-messages kullanıyor
+      wrapper = msg.closest('.group\\/turn-messages');
+    }
+    
+    // Fallback selector'lar
     if (!wrapper) {
       wrapper = msg.closest('[data-testid*="conversation-turn"]');
+    }
+    if (!wrapper) {
+      wrapper = msg.closest('.flex.flex-col.gap-2');
     }
     if (!wrapper) {
       wrapper = msg.parentElement;
     }
     
+    // Wrapper'ı tamamen sil
     if (wrapper) {
       wrapper.remove();
     } else {
@@ -239,7 +261,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
     const clone = response.clone();
     const data = (await clone.json()) as ConversationPayload;
     // keepLastN doğrudan mesaj sayısı
-    const trimmed = trimConversation(data, settings.keepLastN + 1);
+    const trimmed = trimConversation(data, settings.keepLastN );
     if (!trimmed) {
       return response;
     }

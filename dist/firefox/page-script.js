@@ -11,7 +11,8 @@
   };
   var settings = {
     enabled: true,
-    keepLastN: 5
+    keepLastN: 4,
+    autoTrim: true
   };
   window.addEventListener("lightsession:settings", (event) => {
     const customEvent = event;
@@ -20,19 +21,20 @@
     }
     settings = {
       enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings.enabled,
-      keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN)
+      keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings.keepLastN),
+      autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings.autoTrim
     };
-    if (settings.enabled) {
+    if (settings.enabled && !settings.autoTrim) {
       trimDOMToLastNMessages(settings.keepLastN);
     }
   });
   setTimeout(() => {
-    if (settings.enabled) {
+    if (settings.enabled && settings.autoTrim) {
       trimDOMToLastNMessages(settings.keepLastN);
     }
   }, 5e3);
   var observer = new MutationObserver((mutations) => {
-    if (!settings.enabled) return;
+    if (!settings.enabled || !settings.autoTrim) return;
     let shouldTrim = false;
     for (const mutation of mutations) {
       if (mutation.type === "childList") {
@@ -105,14 +107,18 @@
     });
     debugLog("trimDOM: filtered to", validMessages.length, "valid messages (user/assistant)");
     let firstUserIndex = -1;
+    let firstAssistantIndex = -1;
     for (let i = 0; i < validMessages.length; i++) {
       const role = validMessages[i].getAttribute("data-message-author-role");
-      if (role === "user") {
-        firstUserIndex = i;
-        break;
+      if (role === "user" && firstUserIndex === -1) {
+        firstUserIndex = Math.max(0, i - 1);
+      }
+      if (role === "assistant" && firstAssistantIndex === -1) {
+        firstAssistantIndex = i;
       }
     }
-    const messagesToConsider = firstUserIndex >= 0 ? validMessages.slice(firstUserIndex) : validMessages;
+    const startIndex = firstUserIndex >= 0 ? firstUserIndex : firstAssistantIndex;
+    const messagesToConsider = startIndex >= 0 ? validMessages.slice(startIndex) : validMessages;
     debugLog("trimDOM: first user message at index", firstUserIndex, "considering", messagesToConsider.length, "messages");
     if (__DEV__) {
       validMessages.forEach((msg, index) => {
@@ -130,11 +136,18 @@
     const toRemove = messagesToConsider.slice(0, messagesToConsider.length - targetCount);
     debugLog("trimDOM: removing", toRemove.length, "messages, keeping", targetCount);
     toRemove.forEach((msg) => {
-      const toolbars = msg.querySelectorAll(".z-0.flex.min-h-\\[46px\\].justify-start");
-      toolbars.forEach((toolbar) => toolbar.remove());
-      let wrapper = msg.closest(".flex.flex-col.gap-2");
+      let wrapper = null;
+      const role = msg.getAttribute("data-message-author-role");
+      if (role === "assistant") {
+        wrapper = msg.closest(".agent-turn");
+      } else if (role === "user") {
+        wrapper = msg.closest(".group\\/turn-messages");
+      }
       if (!wrapper) {
         wrapper = msg.closest('[data-testid*="conversation-turn"]');
+      }
+      if (!wrapper) {
+        wrapper = msg.closest(".flex.flex-col.gap-2");
       }
       if (!wrapper) {
         wrapper = msg.parentElement;

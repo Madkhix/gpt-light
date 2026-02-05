@@ -4,16 +4,20 @@
   var SETTINGS_KEY = "lightsession_settings";
   var DEFAULT_SETTINGS = {
     enabled: true,
-    keepLastN: 5,
+    keepLastN: 4,
     showIndicator: true,
-    ultraLean: false
+    ultraLean: false,
+    darkMode: true,
+    autoTrim: true
   };
   function normalizeSettings(input) {
     return {
       enabled: typeof input?.enabled === "boolean" ? input.enabled : DEFAULT_SETTINGS.enabled,
       keepLastN: clampNumber(input?.keepLastN, 1, 100, DEFAULT_SETTINGS.keepLastN),
       showIndicator: typeof input?.showIndicator === "boolean" ? input.showIndicator : DEFAULT_SETTINGS.showIndicator,
-      ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean
+      ultraLean: typeof input?.ultraLean === "boolean" ? input.ultraLean : DEFAULT_SETTINGS.ultraLean,
+      darkMode: typeof input?.darkMode === "boolean" ? input.darkMode : DEFAULT_SETTINGS.darkMode,
+      autoTrim: typeof input?.autoTrim === "boolean" ? input.autoTrim : DEFAULT_SETTINGS.autoTrim
     };
   }
   function clampNumber(value, min, max, fallback) {
@@ -36,6 +40,8 @@
   var enabledToggle = document.getElementById("toggle-enabled");
   var indicatorToggle = document.getElementById("toggle-indicator");
   var ultraToggle = document.getElementById("toggle-ultra");
+  var darkToggle = document.getElementById("toggle-dark");
+  var autoTrimToggle = document.getElementById("toggle-autotrim");
   var keepLastInput = document.getElementById("keep-last");
   var refreshButton = document.getElementById("refresh-tab");
   var settings = DEFAULT_SETTINGS;
@@ -53,6 +59,12 @@
     });
     ultraToggle.addEventListener("change", () => {
       updateSetting({ ultraLean: ultraToggle.checked });
+    });
+    darkToggle.addEventListener("change", () => {
+      updateSetting({ darkMode: darkToggle.checked });
+    });
+    autoTrimToggle.addEventListener("change", () => {
+      updateSetting({ autoTrim: autoTrimToggle.checked });
     });
     keepLastInput.addEventListener("input", () => {
       let value = keepLastInput.value.replace(/[^0-9]/g, "");
@@ -88,7 +100,14 @@
     enabledToggle.checked = settings.enabled;
     indicatorToggle.checked = settings.showIndicator;
     ultraToggle.checked = settings.ultraLean;
+    darkToggle.checked = settings.darkMode;
+    autoTrimToggle.checked = settings.autoTrim;
     keepLastInput.value = String(settings.keepLastN);
+    if (settings.darkMode) {
+      document.body.classList.add("dark");
+    } else {
+      document.body.classList.remove("dark");
+    }
   }
   function updateSetting(next) {
     settings = normalizeSettings({ ...settings, ...next });

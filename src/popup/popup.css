@@ -80,3 +80,33 @@ input:focus-visible {
   outline: 2px solid #6f6fd6;
   outline-offset: 2px;
 }
+
+/* Dark Mode */
+body.dark {
+  color-scheme: dark;
+  color: #e5e5e5;
+  background: #1a1a1a;
+}
+
+body.dark .popup {
+  background: #2a2a2a;
+}
+
+body.dark .popup__header p {
+  color: #a0a0a0;
+}
+
+body.dark input[type="number"] {
+  background: #3a3a3a;
+  border-color: #555;
+  color: #e5e5e5;
+}
+
+body.dark button {
+  background: #e5e5e5;
+  color: #1a1a1a;
+}
+
+body.dark button:hover {
+  background: #f0f0f0;
+}
