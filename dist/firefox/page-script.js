@@ -19,7 +19,14 @@
     if (!customEvent.detail) {
       return;
     }
-    settings = customEvent.detail;
+    settings = {
+      enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings?.enabled ?? true,
+      keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings?.keepLastN ?? 4),
+      autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings?.autoTrim ?? true
+    };
+    if (settings.enabled && !settings.autoTrim) {
+      trimDOMToLastNMessages(settings.keepLastN);
+    }
     debugLog("settings updated", settings);
   });
   window.addEventListener("lightsession:trim-now", (event) => {
@@ -27,6 +34,13 @@
     trimDOMToLastNMessages(settings.keepLastN);
   });
   setTimeout(() => {
+    if (!settings || typeof settings.keepLastN === "undefined") {
+      settings = {
+        enabled: true,
+        keepLastN: 4,
+        autoTrim: true
+      };
+    }
     if (settings.enabled && settings.autoTrim) {
       trimDOMToLastNMessages(settings.keepLastN);
     }
@@ -282,5 +296,11 @@
       return null;
     }
     return null;
+  }
+  function clampNumber(value, min, max, fallback) {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      return fallback;
+    }
+    return Math.min(max, Math.max(min, Math.round(value)));
   }
 })();

@@ -44,9 +44,10 @@ api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any)
     sendResponse({ success: true, action: 'toggle' });
   } else if (message.type === 'lightsession:trim-now') {
     if (__DEV__) console.log('[LightSession Content] Processing trim-now message');
-    // Trim olayını page script'e gönder
-    const event = new CustomEvent("lightsession:trim-now");
-    window.dispatchEvent(event);
+    
+    // Firefox için content script üzerinden trim yap
+    trimDOMInContentScript(currentSettings.keepLastN);
+    
     sendResponse({ success: true, action: 'trim' });
   } else {
     if (__DEV__) console.log('[LightSession Content] Unknown message type:', message.type);
@@ -57,11 +58,139 @@ api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any)
 });
 
 function injectPageScript() {
-  const script = document.createElement("script");
-  script.src = api.runtime.getURL("page-script.js");
-  script.async = false;
-  (document.head || document.documentElement).appendChild(script);
-  script.remove();
+  // Platform spesifik inject
+  const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
+  
+  if (isChrome) {
+    // Chrome için page script kullan
+    const script = document.createElement("script");
+    script.src = api.runtime.getURL("page-script.js");
+    script.async = false;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
+    if (__DEV__) console.log('[LightSession Content] Chrome: using page script');
+  } else {
+    // Firefox için content script kullan
+    if (__DEV__) console.log('[LightSession Content] Firefox: using content script trim');
+  }
+}
+
+// Platform bağımsız content script üzerinden trim fonksiyonu
+function trimDOMInContentScript(keepLastN: number) {
+  if (__DEV__) console.log('[LightSession Content] Content script trim started, keepLastN:', keepLastN);
+  
+  // Platform bağımsız geniş container arama
+  const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full') || 
+                   document.querySelector('#thread') ||
+                   document.querySelector('[id="thread"]') ||
+                   document.querySelector('[data-testid*="conversation"]') ||
+                   document.querySelector('.flex-1.overflow-y-auto') ||
+                   document.querySelector('.overflow-y-auto') ||
+                   document.querySelector('main') ||
+                   document.querySelector('body');
+  
+  if (__DEV__) console.log('[LightSession Content] Container found:', !!container);
+  
+  if (!container) {
+    if (__DEV__) console.log('[LightSession Content] trimDOM: conversation container not found');
+    return;
+  }
+
+  // Platform bağımsız geniş mesaj arama
+  let allMessages = Array.from(container.querySelectorAll('[data-message-author-role]'));
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('.min-h-8.text-message'));
+  }
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
+  }
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('[data-message-id]'));
+  }
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('.text-message'));
+  }
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('.group'));
+  }
+  if (allMessages.length === 0) {
+    allMessages = Array.from(container.querySelectorAll('div'));
+  }
+
+  if (__DEV__) console.log('[LightSession Content] trimDOM: found', allMessages.length, 'message containers');
+  
+  // Mesajları role'lerine göre filtrele
+  const validMessages = allMessages.filter(msg => {
+    let role = msg.getAttribute('data-message-author-role');
+    if (!role) {
+      if (msg.classList.contains('user') || msg.querySelector('.user')) role = 'user';
+      else if (msg.classList.contains('assistant') || msg.querySelector('.assistant')) role = 'assistant';
+      else if (msg.textContent?.includes('You') || msg.textContent?.includes('Siz')) role = 'user';
+      else if (msg.textContent?.includes('ChatGPT') || msg.textContent?.includes('Assistant')) role = 'assistant';
+      else {
+        const content = msg.textContent?.trim();
+        if (content && content.length > 0) {
+          role = content.length < 200 && content.includes('?') ? 'user' : 'assistant';
+        } else {
+          role = 'unknown';
+        }
+      }
+    }
+    return role === 'user' || role === 'assistant';
+  });
+
+  if (__DEV__) console.log('[LightSession Content] trimDOM: filtered to', validMessages.length, 'valid messages');
+  
+  // Son keepLastN mesajı koru, gerisini sil
+  if (validMessages.length > keepLastN) {
+    const toRemove = validMessages.slice(0, validMessages.length - keepLastN);
+    
+    if (__DEV__) console.log('[LightSession Content] trimDOM: removing', toRemove.length, 'messages, keeping', keepLastN);
+    
+    // Silinecek mesajların ve toolbar'larını temizle
+    toRemove.forEach(msg => {
+      let wrapper = null;
+      
+      // Role göre spesifik wrapper ara
+      const role = msg.getAttribute('data-message-author-role');
+      if (role === 'assistant') {
+        wrapper = msg.closest('.agent-turn');
+      } else if (role === 'user') {
+        wrapper = msg.closest('.group\\/turn-messages');
+      }
+      
+      // Fallback selector'lar
+      if (!wrapper) {
+        wrapper = msg.closest('[data-testid*="conversation-turn"]');
+      }
+      if (!wrapper) {
+        wrapper = msg.closest('.flex.flex-col.gap-2');
+      }
+      if (!wrapper) {
+        wrapper = msg.closest('.group');
+      }
+      if (!wrapper) {
+        wrapper = msg.parentElement;
+      }
+      
+      // Platform bağımsız daha agresif silme
+      if (wrapper) {
+        if (__DEV__) console.log('[LightSession Content] Removing wrapper:', wrapper);
+        (wrapper as HTMLElement).style.display = 'none';
+        (wrapper as HTMLElement).style.visibility = 'hidden';
+        wrapper.remove();
+      } else {
+        if (__DEV__) console.log('[LightSession Content] Removing msg:', msg);
+        (msg as HTMLElement).style.display = 'none';
+        (msg as HTMLElement).style.visibility = 'hidden';
+        msg.remove();
+      }
+    });
+    
+    if (__DEV__) console.log('[LightSession Content] trimDOM: trimmed to last', keepLastN, 'messages, removed', toRemove.length, 'messages');
+  } else {
+    if (__DEV__) console.log('[LightSession Content] trimDOM: nothing to trim, messages', validMessages.length, 'targetCount', keepLastN);
+  }
 }
 
 function initializeSettings() {
@@ -75,6 +204,12 @@ function applySettings(next: LightSessionSettings) {
   currentSettings = next;
   dispatchSettings(next);
   updateIndicator(next);
+  
+  // Firefox için auto-trim kontrolü
+  if (next.enabled && next.autoTrim) {
+    if (__DEV__) console.log('[LightSession Content] Firefox: auto-trim enabled, performing trim');
+    trimDOMInContentScript(next.keepLastN);
+  }
   updateUltraLean(next);
 }
 
