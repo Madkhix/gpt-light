@@ -53,7 +53,7 @@
     if (shouldTrim) {
       setTimeout(() => {
         trimDOMToLastNMessages(settings.keepLastN);
-      }, 100);
+      }, 500);
     }
   });
   var container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
@@ -127,7 +127,7 @@
         debugLog(`Message ${index} (${role}):`, content);
       });
     }
-    const targetCount = keepLastN + 1;
+    const targetCount = keepLastN;
     debugLog("trimDOM: keepLastN", keepLastN, "messages, targetCount", targetCount, "messages");
     if (messagesToConsider.length <= targetCount) {
       debugLog("trimDOM: nothing to trim, messages", messagesToConsider.length, "targetCount", targetCount);

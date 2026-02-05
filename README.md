@@ -7,6 +7,8 @@ LightSession is a lightweight browser extension that improves ChatGPT UI perform
 - **DOM-only trimming** of ChatGPT conversation payloads
 - **No flicker** — React never sees untrimmed data
 - **Configurable** message limit (1–100)
+- **Auto Trim Toggle** - enable/disable automatic trimming
+- **Dark Mode** - popup theme matching system preference
 - **Optional status indicator**
 - **Ultra Lean Mode** (CSS-only reduction of animations)
 - **100% local** — no telemetry, no external requests

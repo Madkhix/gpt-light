@@ -86,7 +86,7 @@ const observer = new MutationObserver((mutations) => {
   if (shouldTrim) {
     setTimeout(() => {
       trimDOMToLastNMessages(settings.keepLastN);
-    }, 100); // Kısa bekleme mesajın tam yüklenmesi için
+    }, 500); // Kısa bekleme mesajın tam yüklenmesi için
   }
 });
 
@@ -261,7 +261,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
     const clone = response.clone();
     const data = (await clone.json()) as ConversationPayload;
     // keepLastN doğrudan mesaj sayısı
-    const trimmed = trimConversation(data, settings.keepLastN );
+    const trimmed = trimConversation(data, settings.keepLastN  +1);
     if (!trimmed) {
       return response;
     }
