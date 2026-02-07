@@ -1,4 +1,8 @@
-# LightSession for ChatGPT v0.3.0
+# LightSession for ChatGPT v0.4.0
+
+**Platform Status:**
+- ✅ **Chrome**: Fully functional and stable
+- 🚧 **Firefox**: Under development - may have issues
 
 LightSession is a lightweight browser extension that improves ChatGPT UI performance by trimming long conversations **at render time**. It keeps only the last *N* messages in the DOM while preserving the full conversation on OpenAI servers. Reloading the page restores the full history.
 
@@ -101,6 +105,14 @@ cd lightsession
 npm install
 ```
 
+**Important:** The project includes a comprehensive `.gitignore` file that excludes:
+- `node_modules/` - Dependencies
+- `dist/` - Build outputs  
+- IDE files and OS-specific files
+- Extension packages (`.zip`, `.crx`, `.xpi`)
+
+This ensures a clean repository and prevents unnecessary file tracking.
+
 ### Build Instructions
 1. Install dependencies:
 ```bash
@@ -117,7 +129,9 @@ npm run build:dev
 npm run build
 ```
 
-### Firefox Testing
+### Firefox Testing (Development Version)
+**Note:** Firefox support is currently under development and may have issues.
+
 1. Build Firefox version:
 ```bash
 npm run build:firefox
@@ -129,6 +143,13 @@ npm run build:firefox
    - Click "Load Temporary Add-on"
    - Select `dist/firefox/` directory
    - Test on https://chat.openai.com or https://chatgpt.com
+
+3. **Known Issues:**
+   - Some features may not work as expected
+   - Debug logging may be enabled by default
+   - Performance may vary compared to Chrome version
+
+**For production use, Chrome is recommended at this time.**
 
 ### Chrome Testing
 1. Build Chrome version:
@@ -181,12 +202,54 @@ The build process uses esbuild to:
 
 ### Development
 ```bash
-npm run typecheck
-npm run test:lightsession
+npm run typecheck      # Check TypeScript types
+npm run test:lightsession  # Run automated tests
 ```
+
+### TypeScript Development
+The project uses TypeScript for type safety and better development experience:
+
+```bash
+# Type checking without building
+npx tsc --noEmit
+
+# Development build with type checking
+npm run build:dev
+
+# Watch mode for development (if available)
+npm run dev
+```
+
+**Common Issues:**
+- **Identifier conflicts**: If you see "Definitions of the following identifiers conflict" errors, make sure to import from shared modules:
+  ```typescript
+  import { __DEV__, debugLog } from "./shared/debug";
+  import { excludedRoles, type ConversationNode, type ConversationPayload } from "./shared/types";
+  ```
+
+### Troubleshooting
+- **Build fails**: Check for TypeScript errors with `npx tsc --noEmit`
+- **Permission errors**: Remove `dist/firefox/background.zip` if build fails with EPERM error
+- **Extension not loading**: Check browser console for errors and ensure manifest is valid
+- **Firefox issues**: 
+  - Firefox support is experimental - some features may not work
+  - Check `about:debugging` console for Firefox-specific errors
+  - Content script injection may behave differently than Chrome
+  - Use Chrome for stable functionality while Firefox is in development
 
 ### Source Code Structure
 - `src/` - TypeScript source files (not minified, not bundled)
+  - `src/shared/` - Shared utilities and types
+    - `debug.ts` - Debug logging utilities (`__DEV__`, `debugLog`)
+    - `types.ts` - Common types (`ConversationNode`, `ConversationPayload`, `excludedRoles`)
+    - `settings.ts` - Settings management
+    - `extension-api.ts` - Extension API abstraction
+    - `dom.ts` - DOM utilities
+  - `src/popup/` - Extension popup UI
+  - `src/views/` - Extension views (installed, updated pages)
+  - `src/background.ts` - Background script
+  - `src/content-script.ts` - Content script (Firefox + Chrome coordination)
+  - `src/page-script.ts` - Page script (Chrome fetch interception)
 - `dist/` - Built/compiled files (for distribution only)
 - `manifest.chrome.json` - Chrome-specific manifest
 - `manifest.firefox.json` - Firefox-specific manifest

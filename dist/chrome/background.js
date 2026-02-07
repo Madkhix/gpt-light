@@ -19,6 +19,14 @@
     return chrome;
   }
 
+  // src/shared/debug.ts
+  var __DEV__2 = false;
+  var debugLog = (...args) => {
+    if (__DEV__2) {
+      console.log("[LightSession]", ...args);
+    }
+  };
+
   // src/background.ts
   var api = getExtensionApi();
   api.runtime.onInstalled.addListener(({ reason }) => {
@@ -40,14 +48,14 @@
       api.storage.local.set({ [SETTINGS_KEY]: DEFAULT_SETTINGS });
     });
     api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      console.log("[LightSession Background] Message received:", message);
+      debugLog("[LightSession Background] Message received:", message);
       try {
         if (message.type === "lightsession:ready") {
           sendResponse({ settings: DEFAULT_SETTINGS });
           return true;
         }
       } catch (error) {
-        console.error("[LightSession Background] Message error:", error);
+        debugLog("[LightSession Background] Message error:", error);
       }
     });
   });
@@ -83,18 +91,18 @@
     });
   }
   function trimNow() {
-    if (false) console.log("[LightSession Background] trimNow() called");
+    if (true) console.log("[LightSession Background] trimNow() called");
     api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (false) console.log("[LightSession Background] Current tabs:", tabs);
+      if (true) console.log("[LightSession Background] Current tabs:", tabs);
       if (tabs[0]?.id) {
-        if (false) console.log("[LightSession Background] Sending trim message to tab:", tabs[0].id);
+        if (true) console.log("[LightSession Background] Sending trim message to tab:", tabs[0].id);
         api.tabs.sendMessage(tabs[0].id, {
           type: "lightsession:trim-now"
         }, (response) => {
-          if (false) console.log("[LightSession Background] Message response:", response);
+          if (true) console.log("[LightSession Background] Message response:", response);
         });
       } else {
-        if (false) console.log("[LightSession Background] No active tab found");
+        if (true) console.log("[LightSession Background] No active tab found");
       }
     });
   }

@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS, SETTINGS_KEY, normalizeSettings, type LightSessionSettings } from "./shared/settings";
 import { getExtensionApi } from "./shared/extension-api";
 import { createElement } from "./shared/dom";
+import { __DEV__, debugLog } from "./shared/debug";
 
 const api = getExtensionApi();
 const indicatorId = "lightsession-indicator";
@@ -13,7 +14,42 @@ let indicator: HTMLDivElement | null = null;
 
 initializeSettings();
 
-// Sayfa yüklendikten sonra settings'i gönder
+// Firefox: message-based toggle
+window.addEventListener("message", (event) => {
+  if (!event.data || !event.data.type) return;
+
+  switch (event.data.type) {
+    case "lightsession:new-message":
+      // New message detected by page script, check if we should trim
+      if (currentSettings.enabled && currentSettings.autoTrim) {
+        setTimeout(() => {
+          trimDOMInContentScript(currentSettings.keepLastN);
+        }, 1000);
+      }
+      break;
+      
+    case "lightsession:toggle-request":
+      currentSettings.enabled = event.data.enabled;
+      updateIndicator(currentSettings);
+      // If disabled, stop auto-trim. If enabled with auto-trim, perform trim
+      if (currentSettings.enabled && currentSettings.autoTrim) {
+        trimDOMInContentScript(currentSettings.keepLastN);
+      }
+      window.postMessage({ type: "lightsession:toggle-response", success: true }, "*");
+      break;
+
+    case "lightsession:autoTrim-request":
+      currentSettings.autoTrim = event.data.autoTrim;
+      // Only trim if both enabled and auto-trim are true
+      if (currentSettings.autoTrim && currentSettings.enabled) {
+        trimDOMInContentScript(currentSettings.keepLastN);
+      }
+      window.postMessage({ type: "lightsession:autoTrim-response", success: true }, "*");
+      break;
+  }
+});
+
+// Send settings after page loads
 setTimeout(() => {
   api.storage.local.get([SETTINGS_KEY], (result) => {
     const settings = normalizeSettings(result[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
@@ -32,54 +68,54 @@ api.storage.onChanged.addListener((changes: StorageChanges, areaName: StorageAre
   applySettings(next);
 });
 
-// Background script'ten gelen mesajları dinle
+// Listen for messages from background script
 api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
-  if (__DEV__) console.log('[LightSession Content] Message received:', message);
+  if (__DEV__) debugLog('[LightSession Content] Message received:', message);
   
   if (message.type === 'lightsession:toggle') {
-    if (__DEV__) console.log('[LightSession Content] Processing toggle message');
+    if (__DEV__) debugLog('[LightSession Content] Processing toggle message');
     currentSettings.enabled = message.enabled;
     dispatchSettings(currentSettings);
     updateIndicator(currentSettings);
     sendResponse({ success: true, action: 'toggle' });
   } else if (message.type === 'lightsession:trim-now') {
-    if (__DEV__) console.log('[LightSession Content] Processing trim-now message');
+    if (__DEV__) debugLog('[LightSession Content] Processing trim-now message');
     
-    // Firefox için content script üzerinden trim yap
+    // Perform trim via content script for Firefox
     trimDOMInContentScript(currentSettings.keepLastN);
     
     sendResponse({ success: true, action: 'trim' });
   } else {
-    if (__DEV__) console.log('[LightSession Content] Unknown message type:', message.type);
+    if (__DEV__) debugLog('[LightSession Content] Unknown message type:', message.type);
     sendResponse({ success: false, error: 'Unknown message type' });
   }
   
-  return true; // Async response için gerekli
+  return true; // Required for async response
 });
 
 function injectPageScript() {
-  // Platform spesifik inject
+  // Platform-specific inject
   const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
   
   if (isChrome) {
-    // Chrome için page script kullan
+    // Use page script for Chrome
     const script = document.createElement("script");
     script.src = api.runtime.getURL("page-script.js");
     script.async = false;
     (document.head || document.documentElement).appendChild(script);
     script.remove();
-    if (__DEV__) console.log('[LightSession Content] Chrome: using page script');
+    if (__DEV__) debugLog('[LightSession Content] Chrome: using page script');
   } else {
-    // Firefox için content script kullan
-    if (__DEV__) console.log('[LightSession Content] Firefox: using content script trim');
+    // Use content script for Firefox
+    if (__DEV__) debugLog('[LightSession Content] Firefox: using content script trim');
   }
 }
 
-// Platform bağımsız content script üzerinden trim fonksiyonu
+// Platform-independent content script trim function
 function trimDOMInContentScript(keepLastN: number) {
-  if (__DEV__) console.log('[LightSession Content] Content script trim started, keepLastN:', keepLastN);
+  if (__DEV__) debugLog('[LightSession Content] Content script trim started, keepLastN:', keepLastN);
   
-  // Platform bağımsız geniş container arama
+  // Platform-independent wide container search
   const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full') || 
                    document.querySelector('#thread') ||
                    document.querySelector('[id="thread"]') ||
@@ -89,14 +125,14 @@ function trimDOMInContentScript(keepLastN: number) {
                    document.querySelector('main') ||
                    document.querySelector('body');
   
-  if (__DEV__) console.log('[LightSession Content] Container found:', !!container);
+  if (__DEV__) debugLog('[LightSession Content] Container found:', !!container);
   
   if (!container) {
-    if (__DEV__) console.log('[LightSession Content] trimDOM: conversation container not found');
+    if (__DEV__) debugLog('[LightSession Content] trimDOM: conversation container not found');
     return;
   }
 
-  // Platform bağımsız geniş mesaj arama
+  // Platform-independent wide message search
   let allMessages = Array.from(container.querySelectorAll('[data-message-author-role]'));
   if (allMessages.length === 0) {
     allMessages = Array.from(container.querySelectorAll('.min-h-8.text-message'));
@@ -117,9 +153,9 @@ function trimDOMInContentScript(keepLastN: number) {
     allMessages = Array.from(container.querySelectorAll('div'));
   }
 
-  if (__DEV__) console.log('[LightSession Content] trimDOM: found', allMessages.length, 'message containers');
+  if (__DEV__) debugLog('[LightSession Content] trimDOM: found', allMessages.length, 'message containers');
   
-  // Mesajları role'lerine göre filtrele
+  // Filter messages by role
   const validMessages = allMessages.filter(msg => {
     let role = msg.getAttribute('data-message-author-role');
     if (!role) {
@@ -139,19 +175,19 @@ function trimDOMInContentScript(keepLastN: number) {
     return role === 'user' || role === 'assistant';
   });
 
-  if (__DEV__) console.log('[LightSession Content] trimDOM: filtered to', validMessages.length, 'valid messages');
+  if (__DEV__) debugLog('[LightSession Content] trimDOM: filtered to', validMessages.length, 'valid messages');
   
-  // Son keepLastN mesajı koru, gerisini sil
+  // Keep last keepLastN messages, remove the rest
   if (validMessages.length > keepLastN) {
     const toRemove = validMessages.slice(0, validMessages.length - keepLastN);
     
-    if (__DEV__) console.log('[LightSession Content] trimDOM: removing', toRemove.length, 'messages, keeping', keepLastN);
+    if (__DEV__) debugLog('[LightSession Content] trimDOM: removing', toRemove.length, 'messages, keeping', keepLastN);
     
-    // Silinecek mesajların ve toolbar'larını temizle
+    // Clean up messages to be removed and their toolbars
     toRemove.forEach(msg => {
       let wrapper = null;
       
-      // Role göre spesifik wrapper ara
+      // Search for specific wrapper by role
       const role = msg.getAttribute('data-message-author-role');
       if (role === 'assistant') {
         wrapper = msg.closest('.agent-turn');
@@ -173,43 +209,78 @@ function trimDOMInContentScript(keepLastN: number) {
         wrapper = msg.parentElement;
       }
       
-      // Platform bağımsız daha agresif silme
+      // Platform-independent more aggressive removal
       if (wrapper) {
-        if (__DEV__) console.log('[LightSession Content] Removing wrapper:', wrapper);
+        if (__DEV__) debugLog('[LightSession Content] Removing wrapper:', wrapper);
         (wrapper as HTMLElement).style.display = 'none';
         (wrapper as HTMLElement).style.visibility = 'hidden';
         wrapper.remove();
       } else {
-        if (__DEV__) console.log('[LightSession Content] Removing msg:', msg);
+        if (__DEV__) debugLog('[LightSession Content] Removing msg:', msg);
         (msg as HTMLElement).style.display = 'none';
         (msg as HTMLElement).style.visibility = 'hidden';
         msg.remove();
       }
     });
     
-    if (__DEV__) console.log('[LightSession Content] trimDOM: trimmed to last', keepLastN, 'messages, removed', toRemove.length, 'messages');
+    if (__DEV__) debugLog('[LightSession Content] trimDOM: trimmed to last', keepLastN, 'messages, removed', toRemove.length, 'messages');
   } else {
-    if (__DEV__) console.log('[LightSession Content] trimDOM: nothing to trim, messages', validMessages.length, 'targetCount', keepLastN);
+    if (__DEV__) debugLog('[LightSession Content] trimDOM: nothing to trim, messages', validMessages.length, 'targetCount', keepLastN);
   }
 }
 
 function initializeSettings() {
   api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
     const stored = normalizeSettings(result?.[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
-    applySettings(stored);
+    
+    // Wait for DOM to be ready and ChatGPT to load
+    setTimeout(() => {
+      applySettings(stored);
+      
+      // Additional delay for Firefox to ensure everything is loaded
+      if (typeof chrome === 'undefined' || !chrome.runtime) {
+        setTimeout(() => {
+          applySettings(stored);
+        }, 2000);
+      }
+    }, 3000);
   });
 }
 
 function applySettings(next: LightSessionSettings) {
+  const wasEnabled = currentSettings.enabled;
+  const wasAutoTrim = currentSettings.autoTrim;
+  const oldKeepLastN = currentSettings.keepLastN;
+  
   currentSettings = next;
   dispatchSettings(next);
   updateIndicator(next);
   
-  // Firefox için auto-trim kontrolü
+  // Platform-specific auto-trim with delays
   if (next.enabled && next.autoTrim) {
-    if (__DEV__) console.log('[LightSession Content] Firefox: auto-trim enabled, performing trim');
-    trimDOMInContentScript(next.keepLastN);
+    if (__DEV__) debugLog('[LightSession Content] Auto-trim enabled, performing trim');
+    
+    // Different delays for different platforms
+    const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
+    const delay = isChrome ? 500 : 1000; // Chrome: 500ms, Firefox: 1000ms
+    
+    setTimeout(() => {
+      trimDOMInContentScript(next.keepLastN);
+    }, delay);
   }
+  
+  // If message count changed and extension is enabled with auto-trim, re-trim with new count
+  if (next.enabled && next.autoTrim && oldKeepLastN !== next.keepLastN) {
+    if (__DEV__) debugLog('[LightSession Content] Message count changed, re-trimming with new count:', next.keepLastN);
+    
+    const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
+    const delay = isChrome ? 500 : 1000;
+    
+    setTimeout(() => {
+      trimDOMInContentScript(next.keepLastN);
+    }, delay);
+  }
+  
   updateUltraLean(next);
 }
 
@@ -231,9 +302,25 @@ function updateIndicator(settings: LightSessionSettings) {
     return;
   }
 
+  // Ensure DOM is ready before creating indicator
+  if (document.readyState !== 'complete' && document.readyState !== 'interactive') {
+    setTimeout(() => updateIndicator(settings), 500);
+    return;
+  }
+
   if (!indicator) {
     indicator = createIndicator();
-    document.body.appendChild(indicator);
+    
+    // Try to append to body, if not ready wait
+    if (document.body) {
+      document.body.appendChild(indicator);
+    } else {
+      setTimeout(() => {
+        if (document.body && indicator) {
+          document.body.appendChild(indicator);
+        }
+      }, 1000);
+    }
   }
 
   indicator.textContent = settings.enabled

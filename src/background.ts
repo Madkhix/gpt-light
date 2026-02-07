@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from "./shared/settings";
 import { getExtensionApi } from "./shared/extension-api";
+import { debugLog } from "./shared/debug";
 
 const api = getExtensionApi();
 
@@ -26,16 +27,16 @@ api.runtime.onInstalled.addListener(({ reason }) => {
     api.storage.local.set({ [SETTINGS_KEY]: DEFAULT_SETTINGS });
   });
 
-  // Content script'ten gelen mesajları dinle
+  // Listen for messages from content script
   api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
-    console.log('[LightSession Background] Message received:', message);
+    debugLog('[LightSession Background] Message received:', message);
     try {
       if (message.type === 'lightsession:ready') {
         sendResponse({ settings: DEFAULT_SETTINGS });
         return true;
       }
     } catch (error) {
-      console.error('[LightSession Background] Message error:', error);
+      debugLog('[LightSession Background] Message error:', error);
     }
   });
 });
@@ -61,7 +62,7 @@ function toggleExtension() {
     const updated = { ...settings, enabled: !settings.enabled };
     api.storage.local.set({ [SETTINGS_KEY]: updated });
     
-    // Content script'e bildir
+    // Report content script
     api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         api.tabs.sendMessage(tabs[0].id, {
@@ -69,7 +70,7 @@ function toggleExtension() {
           enabled: updated.enabled
         });
         
-        // Brave için ek kontrol - sayfayı yenile
+        // Extra check for Brave - reload page
         if (updated.enabled) {
           api.tabs.reload(tabs[0].id!);
         }

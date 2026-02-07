@@ -1,4 +1,4 @@
-// DOM yüklendiğinde çalıştır
+// Run when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   const continueBtn = document.getElementById('start-using');
   const settingsBtn = document.getElementById('settings');
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   if (settingsBtn) {
     settingsBtn.addEventListener('click', () => {
-      // Popup'ı yeni sekmede aç (çıktı almak için)
+      // Open popup in new tab (to get out of extension context)
       chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
     });
   }

@@ -47,6 +47,14 @@
     return element;
   }
 
+  // src/shared/debug.ts
+  var __DEV__ = false;
+  var debugLog = (...args) => {
+    if (__DEV__) {
+      console.log("[LightSession]", ...args);
+    }
+  };
+
   // src/content-script.ts
   var api = getExtensionApi();
   var indicatorId = "lightsession-indicator";
@@ -55,6 +63,33 @@
   var currentSettings = DEFAULT_SETTINGS;
   var indicator = null;
   initializeSettings();
+  window.addEventListener("message", (event) => {
+    if (!event.data || !event.data.type) return;
+    switch (event.data.type) {
+      case "lightsession:new-message":
+        if (currentSettings.enabled && currentSettings.autoTrim) {
+          setTimeout(() => {
+            trimDOMInContentScript(currentSettings.keepLastN);
+          }, 1e3);
+        }
+        break;
+      case "lightsession:toggle-request":
+        currentSettings.enabled = event.data.enabled;
+        updateIndicator(currentSettings);
+        if (currentSettings.enabled && currentSettings.autoTrim) {
+          trimDOMInContentScript(currentSettings.keepLastN);
+        }
+        window.postMessage({ type: "lightsession:toggle-response", success: true }, "*");
+        break;
+      case "lightsession:autoTrim-request":
+        currentSettings.autoTrim = event.data.autoTrim;
+        if (currentSettings.autoTrim && currentSettings.enabled) {
+          trimDOMInContentScript(currentSettings.keepLastN);
+        }
+        window.postMessage({ type: "lightsession:autoTrim-response", success: true }, "*");
+        break;
+    }
+  });
   setTimeout(() => {
     api.storage.local.get([SETTINGS_KEY], (result) => {
       const settings = normalizeSettings(result[SETTINGS_KEY]);
@@ -72,19 +107,19 @@
     applySettings(next);
   });
   api.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (false) console.log("[LightSession Content] Message received:", message);
+    if (__DEV__) debugLog("[LightSession Content] Message received:", message);
     if (message.type === "lightsession:toggle") {
-      if (false) console.log("[LightSession Content] Processing toggle message");
+      if (__DEV__) debugLog("[LightSession Content] Processing toggle message");
       currentSettings.enabled = message.enabled;
       dispatchSettings(currentSettings);
       updateIndicator(currentSettings);
       sendResponse({ success: true, action: "toggle" });
     } else if (message.type === "lightsession:trim-now") {
-      if (false) console.log("[LightSession Content] Processing trim-now message");
+      if (__DEV__) debugLog("[LightSession Content] Processing trim-now message");
       trimDOMInContentScript(currentSettings.keepLastN);
       sendResponse({ success: true, action: "trim" });
     } else {
-      if (false) console.log("[LightSession Content] Unknown message type:", message.type);
+      if (__DEV__) debugLog("[LightSession Content] Unknown message type:", message.type);
       sendResponse({ success: false, error: "Unknown message type" });
     }
     return true;
@@ -97,17 +132,17 @@
       script.async = false;
       (document.head || document.documentElement).appendChild(script);
       script.remove();
-      if (false) console.log("[LightSession Content] Chrome: using page script");
+      if (__DEV__) debugLog("[LightSession Content] Chrome: using page script");
     } else {
-      if (false) console.log("[LightSession Content] Firefox: using content script trim");
+      if (__DEV__) debugLog("[LightSession Content] Firefox: using content script trim");
     }
   }
   function trimDOMInContentScript(keepLastN) {
-    if (false) console.log("[LightSession Content] Content script trim started, keepLastN:", keepLastN);
+    if (__DEV__) debugLog("[LightSession Content] Content script trim started, keepLastN:", keepLastN);
     const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]') || document.querySelector('[data-testid*="conversation"]') || document.querySelector(".flex-1.overflow-y-auto") || document.querySelector(".overflow-y-auto") || document.querySelector("main") || document.querySelector("body");
-    if (false) console.log("[LightSession Content] Container found:", !!container);
+    if (__DEV__) debugLog("[LightSession Content] Container found:", !!container);
     if (!container) {
-      if (false) console.log("[LightSession Content] trimDOM: conversation container not found");
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: conversation container not found");
       return;
     }
     let allMessages = Array.from(container.querySelectorAll("[data-message-author-role]"));
@@ -129,7 +164,7 @@
     if (allMessages.length === 0) {
       allMessages = Array.from(container.querySelectorAll("div"));
     }
-    if (false) console.log("[LightSession Content] trimDOM: found", allMessages.length, "message containers");
+    if (__DEV__) debugLog("[LightSession Content] trimDOM: found", allMessages.length, "message containers");
     const validMessages = allMessages.filter((msg) => {
       let role = msg.getAttribute("data-message-author-role");
       if (!role) {
@@ -148,10 +183,10 @@
       }
       return role === "user" || role === "assistant";
     });
-    if (false) console.log("[LightSession Content] trimDOM: filtered to", validMessages.length, "valid messages");
+    if (__DEV__) debugLog("[LightSession Content] trimDOM: filtered to", validMessages.length, "valid messages");
     if (validMessages.length > keepLastN) {
       const toRemove = validMessages.slice(0, validMessages.length - keepLastN);
-      if (false) console.log("[LightSession Content] trimDOM: removing", toRemove.length, "messages, keeping", keepLastN);
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: removing", toRemove.length, "messages, keeping", keepLastN);
       toRemove.forEach((msg) => {
         let wrapper = null;
         const role = msg.getAttribute("data-message-author-role");
@@ -173,35 +208,57 @@
           wrapper = msg.parentElement;
         }
         if (wrapper) {
-          if (false) console.log("[LightSession Content] Removing wrapper:", wrapper);
+          if (__DEV__) debugLog("[LightSession Content] Removing wrapper:", wrapper);
           wrapper.style.display = "none";
           wrapper.style.visibility = "hidden";
           wrapper.remove();
         } else {
-          if (false) console.log("[LightSession Content] Removing msg:", msg);
+          if (__DEV__) debugLog("[LightSession Content] Removing msg:", msg);
           msg.style.display = "none";
           msg.style.visibility = "hidden";
           msg.remove();
         }
       });
-      if (false) console.log("[LightSession Content] trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
     } else {
-      if (false) console.log("[LightSession Content] trimDOM: nothing to trim, messages", validMessages.length, "targetCount", keepLastN);
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: nothing to trim, messages", validMessages.length, "targetCount", keepLastN);
     }
   }
   function initializeSettings() {
     api.storage.local.get(SETTINGS_KEY, (result) => {
       const stored = normalizeSettings(result?.[SETTINGS_KEY]);
-      applySettings(stored);
+      setTimeout(() => {
+        applySettings(stored);
+        if (typeof chrome === "undefined" || !chrome.runtime) {
+          setTimeout(() => {
+            applySettings(stored);
+          }, 2e3);
+        }
+      }, 3e3);
     });
   }
   function applySettings(next) {
+    const wasEnabled = currentSettings.enabled;
+    const wasAutoTrim = currentSettings.autoTrim;
+    const oldKeepLastN = currentSettings.keepLastN;
     currentSettings = next;
     dispatchSettings(next);
     updateIndicator(next);
     if (next.enabled && next.autoTrim) {
-      if (false) console.log("[LightSession Content] Firefox: auto-trim enabled, performing trim");
-      trimDOMInContentScript(next.keepLastN);
+      if (__DEV__) debugLog("[LightSession Content] Auto-trim enabled, performing trim");
+      const isChrome = typeof chrome !== "undefined" && chrome.runtime;
+      const delay = isChrome ? 500 : 1e3;
+      setTimeout(() => {
+        trimDOMInContentScript(next.keepLastN);
+      }, delay);
+    }
+    if (next.enabled && next.autoTrim && oldKeepLastN !== next.keepLastN) {
+      if (__DEV__) debugLog("[LightSession Content] Message count changed, re-trimming with new count:", next.keepLastN);
+      const isChrome = typeof chrome !== "undefined" && chrome.runtime;
+      const delay = isChrome ? 500 : 1e3;
+      setTimeout(() => {
+        trimDOMInContentScript(next.keepLastN);
+      }, delay);
     }
     updateUltraLean(next);
   }
@@ -221,9 +278,21 @@
       indicator = null;
       return;
     }
+    if (document.readyState !== "complete" && document.readyState !== "interactive") {
+      setTimeout(() => updateIndicator(settings), 500);
+      return;
+    }
     if (!indicator) {
       indicator = createIndicator();
-      document.body.appendChild(indicator);
+      if (document.body) {
+        document.body.appendChild(indicator);
+      } else {
+        setTimeout(() => {
+          if (document.body && indicator) {
+            document.body.appendChild(indicator);
+          }
+        }, 1e3);
+      }
     }
     indicator.textContent = settings.enabled ? `LightSession: ON \xB7 Last ${settings.keepLastN}` : "LightSession: OFF";
   }

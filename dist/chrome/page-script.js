@@ -1,102 +1,122 @@
 "use strict";
 (() => {
-  // src/page-script.ts
-  var excludedRoles = /* @__PURE__ */ new Set(["system", "tool", "thinking"]);
-  var originalFetch = window.fetch.bind(window);
+  // src/shared/debug.ts
   var __DEV__ = false;
   var debugLog = (...args) => {
     if (__DEV__) {
       console.log("[LightSession]", ...args);
     }
   };
-  var settings = {
+
+  // src/shared/types.ts
+  var excludedRoles = /* @__PURE__ */ new Set(["system", "tool", "thinking"]);
+
+  // src/page-script.ts
+  var pageSettings = {
     enabled: true,
     keepLastN: 4,
     autoTrim: true
   };
   window.addEventListener("lightsession:settings", (event) => {
     const customEvent = event;
-    if (!customEvent.detail) {
-      return;
-    }
-    settings = {
-      enabled: typeof customEvent.detail.enabled === "boolean" ? customEvent.detail.enabled : settings?.enabled ?? true,
-      keepLastN: clampNumber(customEvent.detail.keepLastN, 1, 100, settings?.keepLastN ?? 4),
-      autoTrim: typeof customEvent.detail.autoTrim === "boolean" ? customEvent.detail.autoTrim : settings?.autoTrim ?? true
-    };
-    if (settings.enabled && !settings.autoTrim) {
-      trimDOMToLastNMessages(settings.keepLastN);
-    }
-    debugLog("settings updated", settings);
+    if (!customEvent.detail) return;
+    const { enabled, autoTrim, keepLastN } = customEvent.detail;
+    pageSettings.enabled = enabled;
+    pageSettings.autoTrim = autoTrim;
+    pageSettings.keepLastN = keepLastN;
+    debugLog("Settings updated:", { enabled, autoTrim, keepLastN });
   });
   window.addEventListener("lightsession:trim-now", (event) => {
-    if (__DEV__) debugLog("manual trim triggered");
-    trimDOMToLastNMessages(settings.keepLastN);
+    const keepLastN = event.detail.keepLastN;
+    trimDOMToLastNMessages(keepLastN);
   });
-  setTimeout(() => {
-    if (!settings || typeof settings.keepLastN === "undefined") {
-      settings = {
-        enabled: true,
-        keepLastN: 4,
-        autoTrim: true
-      };
-    }
-    if (settings.enabled && settings.autoTrim) {
-      trimDOMToLastNMessages(settings.keepLastN);
-    }
-  }, 5e3);
-  var observer = new MutationObserver((mutations) => {
-    if (!settings.enabled || !settings.autoTrim) return;
-    let shouldTrim = false;
+  var pageObserver = new MutationObserver((mutations) => {
+    let shouldNotify = false;
     for (const mutation of mutations) {
       if (mutation.type === "childList") {
         for (const addedNode of mutation.addedNodes) {
           if (addedNode.nodeType === Node.ELEMENT_NODE) {
             const element = addedNode;
             if (element.matches("[data-message-author-role]") || element.matches(".min-h-8.text-message") || element.querySelector("[data-message-author-role]") || element.querySelector(".min-h-8.text-message")) {
-              shouldTrim = true;
+              shouldNotify = true;
               break;
             }
           }
         }
       }
-      if (shouldTrim) break;
+      if (shouldNotify) break;
     }
-    if (shouldTrim) {
+    if (shouldNotify) {
       setTimeout(() => {
-        trimDOMToLastNMessages(settings.keepLastN);
+        window.postMessage({ type: "lightsession:new-message" }, "*");
       }, 500);
     }
   });
-  var container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
-  if (container) {
-    observer.observe(container, {
-      childList: true,
-      subtree: true
-    });
-  } else {
-    setTimeout(() => {
-      const lateContainer = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
-      if (lateContainer) {
-        observer.observe(lateContainer, {
-          childList: true,
-          subtree: true
-        });
+  var startObserver = () => {
+    const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full");
+    if (container) {
+      pageObserver.observe(container, {
+        childList: true,
+        subtree: true
+      });
+      debugLog("Observer started");
+    } else {
+      setTimeout(startObserver, 1e3);
+    }
+  };
+  setTimeout(startObserver, 1e3);
+  var pageOriginalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const response = await pageOriginalFetch(input, init);
+    try {
+      if (!pageSettings.enabled) {
+        return response;
       }
-    }, 3e3);
-  }
+      const url = toUrl(input, response.url);
+      if (!url || !/\/backend-api\/conversation/.test(url.pathname)) {
+        return response;
+      }
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        return response;
+      }
+      const clone = response.clone();
+      const data = await clone.json();
+      const trimmed = trimConversation(data, pageSettings.keepLastN + 1);
+      if (!trimmed) {
+        return response;
+      }
+      debugLog("trimmed conversation", {
+        keepLastN: pageSettings.keepLastN,
+        originalCount: Object.keys(data.mapping ?? {}).length,
+        trimmedCount: Object.keys(trimmed.mapping ?? {}).length
+      });
+      const headers = new Headers(response.headers);
+      headers.delete("content-length");
+      if (!headers.has("content-type")) {
+        headers.set("content-type", "application/json; charset=utf-8");
+      }
+      return new Response(JSON.stringify(trimmed), {
+        status: response.status,
+        statusText: response.statusText,
+        headers
+      });
+    } catch (error) {
+      return response;
+    }
+  };
   function trimDOMToLastNMessages(keepLastN) {
-    const container2 = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]');
-    if (!container2) {
+    const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]');
+    if (!container) {
       if (__DEV__) debugLog("trimDOM: conversation container not found");
       return;
     }
-    let allMessages = Array.from(container2.querySelectorAll("[data-message-author-role]"));
+    let allMessages = Array.from(container.querySelectorAll("[data-message-author-role]"));
     if (allMessages.length === 0) {
-      allMessages = Array.from(container2.querySelectorAll(".min-h-8.text-message"));
+      allMessages = Array.from(container.querySelectorAll(".min-h-8.text-message"));
     }
     if (allMessages.length === 0) {
-      allMessages = Array.from(container2.querySelectorAll('[data-testid*="conversation-turn"]'));
+      allMessages = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
     }
     debugLog("trimDOM: found", allMessages.length, "message containers");
     const validMessages = allMessages.filter((msg) => {
@@ -132,13 +152,6 @@
     const startIndex = firstUserIndex >= 0 ? firstUserIndex : firstAssistantIndex;
     const messagesToConsider = startIndex >= 0 ? validMessages.slice(startIndex) : validMessages;
     debugLog("trimDOM: first user message at index", firstUserIndex, "considering", messagesToConsider.length, "messages");
-    if (__DEV__) {
-      validMessages.forEach((msg, index) => {
-        const role = msg.getAttribute("data-message-author-role");
-        const content = msg.textContent?.substring(0, 30);
-        debugLog(`Message ${index} (${role}):`, content);
-      });
-    }
     const targetCount = keepLastN;
     debugLog("trimDOM: keepLastN", keepLastN, "messages, targetCount", targetCount, "messages");
     if (messagesToConsider.length <= targetCount) {
@@ -162,6 +175,9 @@
         wrapper = msg.closest(".flex.flex-col.gap-2");
       }
       if (!wrapper) {
+        wrapper = msg.closest(".group");
+      }
+      if (!wrapper) {
         wrapper = msg.parentElement;
       }
       if (wrapper) {
@@ -172,45 +188,6 @@
     });
     debugLog("trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
   }
-  window.fetch = async (input, init) => {
-    const response = await originalFetch(input, init);
-    try {
-      if (!settings.enabled) {
-        return response;
-      }
-      const url = toUrl(input, response.url);
-      if (!url || !/\/backend-api\/conversation/.test(url.pathname)) {
-        return response;
-      }
-      const contentType = response.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        return response;
-      }
-      const clone = response.clone();
-      const data = await clone.json();
-      const trimmed = trimConversation(data, settings.keepLastN + 1);
-      if (!trimmed) {
-        return response;
-      }
-      debugLog("trimmed conversation", {
-        keepLastN: settings.keepLastN,
-        originalCount: Object.keys(data.mapping ?? {}).length,
-        trimmedCount: Object.keys(trimmed.mapping ?? {}).length
-      });
-      const headers = new Headers(response.headers);
-      headers.delete("content-length");
-      if (!headers.has("content-type")) {
-        headers.set("content-type", "application/json; charset=utf-8");
-      }
-      return new Response(JSON.stringify(trimmed), {
-        status: response.status,
-        statusText: response.statusText,
-        headers
-      });
-    } catch (error) {
-      return response;
-    }
-  };
   function trimConversation(payload, keepLastN) {
     if (!payload?.mapping || !payload.current_node) {
       return null;
@@ -296,11 +273,5 @@
       return null;
     }
     return null;
-  }
-  function clampNumber(value, min, max, fallback) {
-    if (typeof value !== "number" || Number.isNaN(value)) {
-      return fallback;
-    }
-    return Math.min(max, Math.max(min, Math.round(value)));
   }
 })();

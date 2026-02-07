@@ -42,15 +42,15 @@ function initialize() {
   });
 
   keepLastInput.addEventListener("input", () => {
-    // Sadece sayı girilmesini sağla
+    // Only allow numbers to be entered
     let value = keepLastInput.value.replace(/[^0-9]/g, '');
     
-    // Boşsa 1 yap
+    // If empty, make it 1
     if (value === '') {
       value = '1';
     }
     
-    // Min/max kontrolü
+    // Min/max check
     const numValue = parseInt(value, 10);
     if (numValue < 1) {
       value = '1';
@@ -66,7 +66,7 @@ function initialize() {
     if (!isNaN(value) && value >= 1 && value <= 100) {
       updateSetting({ keepLastN: value });
     } else {
-      // Geçersiz değerse varsayılana döndür
+      // If invalid value, return to default
       keepLastInput.value = String(settings.keepLastN);
     }
   });
@@ -89,7 +89,7 @@ function render() {
   autoTrimToggle.checked = settings.autoTrim;
   keepLastInput.value = String(settings.keepLastN);
   
-  // Dark mode'u uygula
+  // Dark mode
   if (settings.darkMode) {
     document.body.classList.add('dark');
   } else {
