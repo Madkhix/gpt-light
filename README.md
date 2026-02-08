@@ -1,4 +1,18 @@
-# LightSession for ChatGPT v0.4.0
+# LightSession for ChatGPT v0.4.1
+
+## Changelog
+
+### v0.4.1 (Chrome Bug Fixes & Stability)
+- **Fixed (Chrome)**: Extension toggle now properly disables all trimming operations
+- **Fixed (Chrome)**: Auto-trim toggle correctly stops automatic trimming
+- **Fixed (Chrome)**: Ctrl+Shift+2 manual trim now works regardless of auto-trim setting
+- **Fixed (Chrome)**: Empty spaces and leftover elements removed after trimming
+- **Improved (Chrome)**: Settings synchronization between popup, content script, and page script
+- **Improved (Chrome)**: Better handling of manual vs automatic trimming logic
+- **Firefox**: Version updated to 0.4.1 for consistency (no functional changes - experimental support)
+
+### v0.4.0 (Previous Release)
+- Initial stable release with core features
 
 **Platform Status:**
 - ✅ **Chrome**: Fully functional and stable

@@ -35,6 +35,14 @@
     return chrome;
   }
 
+  // src/shared/debug.ts
+  var __DEV__ = true;
+  var debugLog = (...args) => {
+    if (__DEV__) {
+      console.log("[LightSession]", ...args);
+    }
+  };
+
   // src/popup/popup.ts
   var api = getExtensionApi();
   var enabledToggle = document.getElementById("toggle-enabled");
@@ -50,6 +58,18 @@
     api.storage.local.get(SETTINGS_KEY, (result) => {
       settings = normalizeSettings(result?.[SETTINGS_KEY]);
       render();
+    });
+    api.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && changes[SETTINGS_KEY]) {
+        debugLog("[LightSession Popup] Storage changed:", changes[SETTINGS_KEY]);
+        settings = normalizeSettings(changes[SETTINGS_KEY].newValue);
+        debugLog("[LightSession Popup] New settings:", settings);
+        render();
+        if (keepLastInput) {
+          keepLastInput.value = String(settings.keepLastN);
+          debugLog("[LightSession Popup] Updated keepLastN input to:", settings.keepLastN);
+        }
+      }
     });
     enabledToggle.addEventListener("change", () => {
       updateSetting({ enabled: enabledToggle.checked });

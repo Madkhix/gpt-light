@@ -15,7 +15,7 @@ let pageSettings: PageSettings = {
   autoTrim: true
 };
 
-// === LISTEN FOR CONTENT SCRIPT MESSAGES ===
+// === LISTEN FOR CONTENT SCRIPT MESSAGES ONLY ===
 window.addEventListener("lightsession:settings", (event: Event) => {
   const customEvent = event as CustomEvent<{ enabled: boolean; autoTrim: boolean; keepLastN: number }>;
   if (!customEvent.detail) return;
@@ -27,7 +27,7 @@ window.addEventListener("lightsession:settings", (event: Event) => {
   pageSettings.autoTrim = autoTrim;
   pageSettings.keepLastN = keepLastN;
 
-  debugLog("Settings updated:", { enabled, autoTrim, keepLastN });
+  debugLog("Settings updated from content script:", { enabled, autoTrim, keepLastN });
 });
 
 // === MANUAL TRIM HANDLER ===
@@ -87,7 +87,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
   const response = await pageOriginalFetch(input, init);
   
   try {
-    if (!pageSettings.enabled) {
+    if (!pageSettings.enabled || !pageSettings.autoTrim) {
       return response;
     }
 
@@ -103,6 +103,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Res
 
     const clone = response.clone();
     const data = (await clone.json()) as any;
+    
+    // IMPORTANT: Check both enabled AND autoTrim before trimming
+    if (!pageSettings.enabled || !pageSettings.autoTrim) {
+      return response;
+    }
+    
     const trimmed = trimConversation(data, pageSettings.keepLastN + 1);
     
     if (!trimmed) {

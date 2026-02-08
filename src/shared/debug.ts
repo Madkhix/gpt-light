@@ -1,4 +1,4 @@
-export const __DEV__ = false;
+export const __DEV__ = true;
 
 export const debugLog = (...args: unknown[]) => {
   if (__DEV__) {

@@ -60,11 +60,14 @@ setTimeout(() => {
   });
 }, 1500);
 
+// Simple storage listener - no complex debouncing
 api.storage.onChanged.addListener((changes: StorageChanges, areaName: StorageAreaName) => {
   if (areaName !== "local" || !changes[SETTINGS_KEY]) {
     return;
   }
+  
   const next = normalizeSettings(changes[SETTINGS_KEY].newValue as Partial<LightSessionSettings> | null | undefined);
+  debugLog('[LightSession Content] Storage changed, applying settings:', next);
   applySettings(next);
 });
 
@@ -81,8 +84,14 @@ api.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any)
   } else if (message.type === 'lightsession:trim-now') {
     if (__DEV__) debugLog('[LightSession Content] Processing trim-now message');
     
-    // Perform trim via content script for Firefox
-    trimDOMInContentScript(currentSettings.keepLastN);
+    // Get latest settings to ensure we have current keepLastN
+    api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
+      const latestSettings = normalizeSettings(result?.[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
+      const keepLastN = latestSettings?.keepLastN || currentSettings.keepLastN;
+      
+      if (__DEV__) debugLog('[LightSession Content] Ctrl+Shift+2: Trimming with keepLastN:', keepLastN);
+      trimDOMInContentScript(keepLastN, true); // true = manual trim
+    });
     
     sendResponse({ success: true, action: 'trim' });
   } else {
@@ -112,8 +121,29 @@ function injectPageScript() {
 }
 
 // Platform-independent content script trim function
-function trimDOMInContentScript(keepLastN: number) {
-  if (__DEV__) debugLog('[LightSession Content] Content script trim started, keepLastN:', keepLastN);
+function trimDOMInContentScript(keepLastN: number, isManualTrim: boolean = false) {
+  // Get latest settings to ensure we have current state
+  api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
+    const latestSettings = normalizeSettings(result?.[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
+    
+    // Update currentSettings with latest values
+    if (latestSettings) {
+      currentSettings = { ...currentSettings, ...latestSettings };
+    }
+    
+    // Check if trimming is enabled (only for auto-trim, not manual trim)
+    if (!isManualTrim && (!currentSettings.enabled || !currentSettings.autoTrim)) {
+      if (__DEV__) debugLog('[LightSession Content] trimDOMInContentScript called but trimming disabled:', { enabled: currentSettings.enabled, autoTrim: currentSettings.autoTrim });
+      return;
+    }
+    
+    // For manual trim, still check if extension is enabled
+    if (isManualTrim && !currentSettings.enabled) {
+      if (__DEV__) debugLog('[LightSession Content] Manual trim called but extension disabled:', { enabled: currentSettings.enabled });
+      return;
+    }
+    
+    if (__DEV__) debugLog('[LightSession Content] Content script trim started, keepLastN:', keepLastN, 'manual:', isManualTrim);
   
   // Platform-independent wide container search
   const container = document.querySelector('.group\\/thread.flex.flex-col.min-h-full') || 
@@ -212,9 +242,24 @@ function trimDOMInContentScript(keepLastN: number) {
       // Platform-independent more aggressive removal
       if (wrapper) {
         if (__DEV__) debugLog('[LightSession Content] Removing wrapper:', wrapper);
-        (wrapper as HTMLElement).style.display = 'none';
-        (wrapper as HTMLElement).style.visibility = 'hidden';
-        wrapper.remove();
+        
+        // Remove the wrapper and all its empty siblings
+        let current = wrapper as HTMLElement;
+        while (current && current.parentElement) {
+          const nextSibling = current.nextElementSibling;
+          current.remove();
+          
+          // Also remove empty siblings like <br class="sr-only">
+          if (nextSibling && (
+            nextSibling.tagName === 'BR' || 
+            nextSibling.classList.contains('sr-only') ||
+            (nextSibling.textContent && nextSibling.textContent.trim() === '')
+          )) {
+            current = nextSibling as HTMLElement;
+          } else {
+            break;
+          }
+        }
       } else {
         if (__DEV__) debugLog('[LightSession Content] Removing msg:', msg);
         (msg as HTMLElement).style.display = 'none';
@@ -227,7 +272,8 @@ function trimDOMInContentScript(keepLastN: number) {
   } else {
     if (__DEV__) debugLog('[LightSession Content] trimDOM: nothing to trim, messages', validMessages.length, 'targetCount', keepLastN);
   }
-}
+    });
+  }
 
 function initializeSettings() {
   api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
@@ -248,6 +294,7 @@ function initializeSettings() {
 }
 
 function applySettings(next: LightSessionSettings) {
+  debugLog('[LightSession Content] applySettings called with:', next);
   const wasEnabled = currentSettings.enabled;
   const wasAutoTrim = currentSettings.autoTrim;
   const oldKeepLastN = currentSettings.keepLastN;
@@ -267,6 +314,8 @@ function applySettings(next: LightSessionSettings) {
     setTimeout(() => {
       trimDOMInContentScript(next.keepLastN);
     }, delay);
+  } else {
+    if (__DEV__) debugLog('[LightSession Content] Auto-trim disabled, NOT performing trim');
   }
   
   // If message count changed and extension is enabled with auto-trim, re-trim with new count

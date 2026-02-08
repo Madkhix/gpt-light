@@ -20,9 +20,9 @@
   }
 
   // src/shared/debug.ts
-  var __DEV__2 = false;
+  var __DEV__ = true;
   var debugLog = (...args) => {
-    if (__DEV__2) {
+    if (__DEV__) {
       console.log("[LightSession]", ...args);
     }
   };
@@ -73,9 +73,11 @@
     }
   });
   function toggleExtension() {
+    debugLog("[LightSession Background] toggleExtension() called");
     api.storage.local.get(SETTINGS_KEY, (result) => {
       const settings = result?.[SETTINGS_KEY] || DEFAULT_SETTINGS;
       const updated = { ...settings, enabled: !settings.enabled };
+      debugLog("[LightSession Background] Toggle settings:", { current: settings.enabled, updated: updated.enabled });
       api.storage.local.set({ [SETTINGS_KEY]: updated });
       api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
@@ -91,18 +93,18 @@
     });
   }
   function trimNow() {
-    if (true) console.log("[LightSession Background] trimNow() called");
+    if (__DEV__) debugLog("[LightSession Background] trimNow() called");
     api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (true) console.log("[LightSession Background] Current tabs:", tabs);
+      if (__DEV__) debugLog("[LightSession Background] Current tabs:", tabs);
       if (tabs[0]?.id) {
-        if (true) console.log("[LightSession Background] Sending trim message to tab:", tabs[0].id);
+        if (__DEV__) debugLog("[LightSession Background] Sending trim message to tab:", tabs[0].id);
         api.tabs.sendMessage(tabs[0].id, {
           type: "lightsession:trim-now"
         }, (response) => {
-          if (true) console.log("[LightSession Background] Message response:", response);
+          if (__DEV__) debugLog("[LightSession Background] Message response:", response);
         });
       } else {
-        if (true) console.log("[LightSession Background] No active tab found");
+        if (__DEV__) debugLog("[LightSession Background] No active tab found");
       }
     });
   }

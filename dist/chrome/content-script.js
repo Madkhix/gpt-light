@@ -48,7 +48,7 @@
   }
 
   // src/shared/debug.ts
-  var __DEV__ = false;
+  var __DEV__ = true;
   var debugLog = (...args) => {
     if (__DEV__) {
       console.log("[LightSession]", ...args);
@@ -104,6 +104,7 @@
       return;
     }
     const next = normalizeSettings(changes[SETTINGS_KEY].newValue);
+    debugLog("[LightSession Content] Storage changed, applying settings:", next);
     applySettings(next);
   });
   api.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -116,7 +117,12 @@
       sendResponse({ success: true, action: "toggle" });
     } else if (message.type === "lightsession:trim-now") {
       if (__DEV__) debugLog("[LightSession Content] Processing trim-now message");
-      trimDOMInContentScript(currentSettings.keepLastN);
+      api.storage.local.get(SETTINGS_KEY, (result) => {
+        const latestSettings = normalizeSettings(result?.[SETTINGS_KEY]);
+        const keepLastN = latestSettings?.keepLastN || currentSettings.keepLastN;
+        if (__DEV__) debugLog("[LightSession Content] Ctrl+Shift+2: Trimming with keepLastN:", keepLastN);
+        trimDOMInContentScript(keepLastN, true);
+      });
       sendResponse({ success: true, action: "trim" });
     } else {
       if (__DEV__) debugLog("[LightSession Content] Unknown message type:", message.type);
@@ -137,92 +143,113 @@
       if (__DEV__) debugLog("[LightSession Content] Firefox: using content script trim");
     }
   }
-  function trimDOMInContentScript(keepLastN) {
-    if (__DEV__) debugLog("[LightSession Content] Content script trim started, keepLastN:", keepLastN);
-    const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]') || document.querySelector('[data-testid*="conversation"]') || document.querySelector(".flex-1.overflow-y-auto") || document.querySelector(".overflow-y-auto") || document.querySelector("main") || document.querySelector("body");
-    if (__DEV__) debugLog("[LightSession Content] Container found:", !!container);
-    if (!container) {
-      if (__DEV__) debugLog("[LightSession Content] trimDOM: conversation container not found");
-      return;
-    }
-    let allMessages = Array.from(container.querySelectorAll("[data-message-author-role]"));
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll(".min-h-8.text-message"));
-    }
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
-    }
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll("[data-message-id]"));
-    }
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll(".text-message"));
-    }
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll(".group"));
-    }
-    if (allMessages.length === 0) {
-      allMessages = Array.from(container.querySelectorAll("div"));
-    }
-    if (__DEV__) debugLog("[LightSession Content] trimDOM: found", allMessages.length, "message containers");
-    const validMessages = allMessages.filter((msg) => {
-      let role = msg.getAttribute("data-message-author-role");
-      if (!role) {
-        if (msg.classList.contains("user") || msg.querySelector(".user")) role = "user";
-        else if (msg.classList.contains("assistant") || msg.querySelector(".assistant")) role = "assistant";
-        else if (msg.textContent?.includes("You") || msg.textContent?.includes("Siz")) role = "user";
-        else if (msg.textContent?.includes("ChatGPT") || msg.textContent?.includes("Assistant")) role = "assistant";
-        else {
-          const content = msg.textContent?.trim();
-          if (content && content.length > 0) {
-            role = content.length < 200 && content.includes("?") ? "user" : "assistant";
-          } else {
-            role = "unknown";
+  function trimDOMInContentScript(keepLastN, isManualTrim = false) {
+    api.storage.local.get(SETTINGS_KEY, (result) => {
+      const latestSettings = normalizeSettings(result?.[SETTINGS_KEY]);
+      if (latestSettings) {
+        currentSettings = { ...currentSettings, ...latestSettings };
+      }
+      if (!isManualTrim && (!currentSettings.enabled || !currentSettings.autoTrim)) {
+        if (__DEV__) debugLog("[LightSession Content] trimDOMInContentScript called but trimming disabled:", { enabled: currentSettings.enabled, autoTrim: currentSettings.autoTrim });
+        return;
+      }
+      if (isManualTrim && !currentSettings.enabled) {
+        if (__DEV__) debugLog("[LightSession Content] Manual trim called but extension disabled:", { enabled: currentSettings.enabled });
+        return;
+      }
+      if (__DEV__) debugLog("[LightSession Content] Content script trim started, keepLastN:", keepLastN, "manual:", isManualTrim);
+      const container = document.querySelector(".group\\/thread.flex.flex-col.min-h-full") || document.querySelector("#thread") || document.querySelector('[id="thread"]') || document.querySelector('[data-testid*="conversation"]') || document.querySelector(".flex-1.overflow-y-auto") || document.querySelector(".overflow-y-auto") || document.querySelector("main") || document.querySelector("body");
+      if (__DEV__) debugLog("[LightSession Content] Container found:", !!container);
+      if (!container) {
+        if (__DEV__) debugLog("[LightSession Content] trimDOM: conversation container not found");
+        return;
+      }
+      let allMessages = Array.from(container.querySelectorAll("[data-message-author-role]"));
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll(".min-h-8.text-message"));
+      }
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll('[data-testid*="conversation-turn"]'));
+      }
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll("[data-message-id]"));
+      }
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll(".text-message"));
+      }
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll(".group"));
+      }
+      if (allMessages.length === 0) {
+        allMessages = Array.from(container.querySelectorAll("div"));
+      }
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: found", allMessages.length, "message containers");
+      const validMessages = allMessages.filter((msg) => {
+        let role = msg.getAttribute("data-message-author-role");
+        if (!role) {
+          if (msg.classList.contains("user") || msg.querySelector(".user")) role = "user";
+          else if (msg.classList.contains("assistant") || msg.querySelector(".assistant")) role = "assistant";
+          else if (msg.textContent?.includes("You") || msg.textContent?.includes("Siz")) role = "user";
+          else if (msg.textContent?.includes("ChatGPT") || msg.textContent?.includes("Assistant")) role = "assistant";
+          else {
+            const content = msg.textContent?.trim();
+            if (content && content.length > 0) {
+              role = content.length < 200 && content.includes("?") ? "user" : "assistant";
+            } else {
+              role = "unknown";
+            }
           }
         }
-      }
-      return role === "user" || role === "assistant";
-    });
-    if (__DEV__) debugLog("[LightSession Content] trimDOM: filtered to", validMessages.length, "valid messages");
-    if (validMessages.length > keepLastN) {
-      const toRemove = validMessages.slice(0, validMessages.length - keepLastN);
-      if (__DEV__) debugLog("[LightSession Content] trimDOM: removing", toRemove.length, "messages, keeping", keepLastN);
-      toRemove.forEach((msg) => {
-        let wrapper = null;
-        const role = msg.getAttribute("data-message-author-role");
-        if (role === "assistant") {
-          wrapper = msg.closest(".agent-turn");
-        } else if (role === "user") {
-          wrapper = msg.closest(".group\\/turn-messages");
-        }
-        if (!wrapper) {
-          wrapper = msg.closest('[data-testid*="conversation-turn"]');
-        }
-        if (!wrapper) {
-          wrapper = msg.closest(".flex.flex-col.gap-2");
-        }
-        if (!wrapper) {
-          wrapper = msg.closest(".group");
-        }
-        if (!wrapper) {
-          wrapper = msg.parentElement;
-        }
-        if (wrapper) {
-          if (__DEV__) debugLog("[LightSession Content] Removing wrapper:", wrapper);
-          wrapper.style.display = "none";
-          wrapper.style.visibility = "hidden";
-          wrapper.remove();
-        } else {
-          if (__DEV__) debugLog("[LightSession Content] Removing msg:", msg);
-          msg.style.display = "none";
-          msg.style.visibility = "hidden";
-          msg.remove();
-        }
+        return role === "user" || role === "assistant";
       });
-      if (__DEV__) debugLog("[LightSession Content] trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
-    } else {
-      if (__DEV__) debugLog("[LightSession Content] trimDOM: nothing to trim, messages", validMessages.length, "targetCount", keepLastN);
-    }
+      if (__DEV__) debugLog("[LightSession Content] trimDOM: filtered to", validMessages.length, "valid messages");
+      if (validMessages.length > keepLastN) {
+        const toRemove = validMessages.slice(0, validMessages.length - keepLastN);
+        if (__DEV__) debugLog("[LightSession Content] trimDOM: removing", toRemove.length, "messages, keeping", keepLastN);
+        toRemove.forEach((msg) => {
+          let wrapper = null;
+          const role = msg.getAttribute("data-message-author-role");
+          if (role === "assistant") {
+            wrapper = msg.closest(".agent-turn");
+          } else if (role === "user") {
+            wrapper = msg.closest(".group\\/turn-messages");
+          }
+          if (!wrapper) {
+            wrapper = msg.closest('[data-testid*="conversation-turn"]');
+          }
+          if (!wrapper) {
+            wrapper = msg.closest(".flex.flex-col.gap-2");
+          }
+          if (!wrapper) {
+            wrapper = msg.closest(".group");
+          }
+          if (!wrapper) {
+            wrapper = msg.parentElement;
+          }
+          if (wrapper) {
+            if (__DEV__) debugLog("[LightSession Content] Removing wrapper:", wrapper);
+            let current = wrapper;
+            while (current && current.parentElement) {
+              const nextSibling = current.nextElementSibling;
+              current.remove();
+              if (nextSibling && (nextSibling.tagName === "BR" || nextSibling.classList.contains("sr-only") || nextSibling.textContent && nextSibling.textContent.trim() === "")) {
+                current = nextSibling;
+              } else {
+                break;
+              }
+            }
+          } else {
+            if (__DEV__) debugLog("[LightSession Content] Removing msg:", msg);
+            msg.style.display = "none";
+            msg.style.visibility = "hidden";
+            msg.remove();
+          }
+        });
+        if (__DEV__) debugLog("[LightSession Content] trimDOM: trimmed to last", keepLastN, "messages, removed", toRemove.length, "messages");
+      } else {
+        if (__DEV__) debugLog("[LightSession Content] trimDOM: nothing to trim, messages", validMessages.length, "targetCount", keepLastN);
+      }
+    });
   }
   function initializeSettings() {
     api.storage.local.get(SETTINGS_KEY, (result) => {
@@ -238,6 +265,7 @@
     });
   }
   function applySettings(next) {
+    debugLog("[LightSession Content] applySettings called with:", next);
     const wasEnabled = currentSettings.enabled;
     const wasAutoTrim = currentSettings.autoTrim;
     const oldKeepLastN = currentSettings.keepLastN;
@@ -251,6 +279,8 @@
       setTimeout(() => {
         trimDOMInContentScript(next.keepLastN);
       }, delay);
+    } else {
+      if (__DEV__) debugLog("[LightSession Content] Auto-trim disabled, NOT performing trim");
     }
     if (next.enabled && next.autoTrim && oldKeepLastN !== next.keepLastN) {
       if (__DEV__) debugLog("[LightSession Content] Message count changed, re-trimming with new count:", next.keepLastN);

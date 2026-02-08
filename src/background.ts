@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_KEY } from "./shared/settings";
 import { getExtensionApi } from "./shared/extension-api";
-import { debugLog } from "./shared/debug";
+import { __DEV__, debugLog } from "./shared/debug";
 
 const api = getExtensionApi();
 
@@ -57,9 +57,11 @@ api.commands.onCommand.addListener((command) => {
 });
 
 function toggleExtension() {
+  debugLog('[LightSession Background] toggleExtension() called');
   api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
     const settings = result?.[SETTINGS_KEY] as any || DEFAULT_SETTINGS;
     const updated = { ...settings, enabled: !settings.enabled };
+    debugLog('[LightSession Background] Toggle settings:', { current: settings.enabled, updated: updated.enabled });
     api.storage.local.set({ [SETTINGS_KEY]: updated });
     
     // Report content script
@@ -80,18 +82,18 @@ function toggleExtension() {
 }
 
 function trimNow() {
-  if (__DEV__) console.log('[LightSession Background] trimNow() called');
+  if (__DEV__) debugLog('[LightSession Background] trimNow() called');
   api.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (__DEV__) console.log('[LightSession Background] Current tabs:', tabs);
+    if (__DEV__) debugLog('[LightSession Background] Current tabs:', tabs);
     if (tabs[0]?.id) {
-      if (__DEV__) console.log('[LightSession Background] Sending trim message to tab:', tabs[0].id);
+      if (__DEV__) debugLog('[LightSession Background] Sending trim message to tab:', tabs[0].id);
       api.tabs.sendMessage(tabs[0].id, {
         type: "lightsession:trim-now"
       }, (response) => {
-        if (__DEV__) console.log('[LightSession Background] Message response:', response);
+        if (__DEV__) debugLog('[LightSession Background] Message response:', response);
       });
     } else {
-      if (__DEV__) console.log('[LightSession Background] No active tab found');
+      if (__DEV__) debugLog('[LightSession Background] No active tab found');
     }
   });
 }

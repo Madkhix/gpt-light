@@ -1,7 +1,7 @@
 "use strict";
 (() => {
   // src/shared/debug.ts
-  var __DEV__ = false;
+  var __DEV__ = true;
   var debugLog = (...args) => {
     if (__DEV__) {
       console.log("[LightSession]", ...args);
@@ -24,7 +24,7 @@
     pageSettings.enabled = enabled;
     pageSettings.autoTrim = autoTrim;
     pageSettings.keepLastN = keepLastN;
-    debugLog("Settings updated:", { enabled, autoTrim, keepLastN });
+    debugLog("Settings updated from content script:", { enabled, autoTrim, keepLastN });
   });
   window.addEventListener("lightsession:trim-now", (event) => {
     const keepLastN = event.detail.keepLastN;
@@ -69,7 +69,7 @@
   window.fetch = async (input, init) => {
     const response = await pageOriginalFetch(input, init);
     try {
-      if (!pageSettings.enabled) {
+      if (!pageSettings.enabled || !pageSettings.autoTrim) {
         return response;
       }
       const url = toUrl(input, response.url);
@@ -82,6 +82,9 @@
       }
       const clone = response.clone();
       const data = await clone.json();
+      if (!pageSettings.enabled || !pageSettings.autoTrim) {
+        return response;
+      }
       const trimmed = trimConversation(data, pageSettings.keepLastN + 1);
       if (!trimmed) {
         return response;

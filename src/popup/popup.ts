@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, SETTINGS_KEY, normalizeSettings, type LightSessionSettings } from "../shared/settings";
 import { getExtensionApi } from "../shared/extension-api";
+import { debugLog } from "../shared/debug";
 
 const api = getExtensionApi();
 
@@ -19,6 +20,22 @@ function initialize() {
   api.storage.local.get(SETTINGS_KEY, (result: Record<string, unknown>) => {
     settings = normalizeSettings(result?.[SETTINGS_KEY] as Partial<LightSessionSettings> | null | undefined);
     render();
+  });
+
+  // Listen for storage changes (when toggle is pressed via keyboard shortcut)
+  api.storage.onChanged.addListener((changes: Record<string, any>, areaName: string) => {
+    if (areaName === "local" && changes[SETTINGS_KEY]) {
+      debugLog('[LightSession Popup] Storage changed:', changes[SETTINGS_KEY]);
+      settings = normalizeSettings(changes[SETTINGS_KEY].newValue as Partial<LightSessionSettings> | null | undefined);
+      debugLog('[LightSession Popup] New settings:', settings);
+      render();
+      
+      // Force update keepLastN input value
+      if (keepLastInput) {
+        keepLastInput.value = String(settings.keepLastN);
+        debugLog('[LightSession Popup] Updated keepLastN input to:', settings.keepLastN);
+      }
+    }
   });
 
   enabledToggle.addEventListener("change", () => {
