@@ -179,11 +179,15 @@ function trimDOMInContentScript(keepLastN: number, isManualTrim: boolean = false
   if (allMessages.length === 0) {
     allMessages = Array.from(container.querySelectorAll('.group'));
   }
-  if (allMessages.length === 0) {
-    allMessages = Array.from(container.querySelectorAll('div'));
-  }
+  // REMOVED: Array.from(container.querySelectorAll('div')) - this was removing input areas
 
   if (__DEV__) debugLog('[LightSession Content] trimDOM: found', allMessages.length, 'message containers');
+  
+  // SAFETY: Don't trim if no messages found (new chat page)
+  if (allMessages.length === 0) {
+    if (__DEV__) debugLog('[LightSession Content] trimDOM: No messages found, skipping trim (likely new chat page)');
+    return;
+  }
   
   // Filter messages by role
   const validMessages = allMessages.filter(msg => {

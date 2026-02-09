@@ -1,6 +1,12 @@
-# LightSession for ChatGPT v0.4.1
+# LightSession for ChatGPT v0.4.2
 
 ## Changelog
+
+### v0.4.2 (Critical Bug Fix)
+- **Fixed (Chrome)**: Removed dangerous DOM selector that was deleting message input areas on new chat pages
+- **Fixed (Chrome)**: Added safety check to prevent trimming on empty/new chat pages
+- **Fixed (Chrome)**: New chat pages now preserve message input area and limit messages
+- **Note**: This fixes a critical issue where users couldn't start new conversations
 
 ### v0.4.1 (Chrome Bug Fixes & Stability)
 - **Fixed (Chrome)**: Extension toggle now properly disables all trimming operations

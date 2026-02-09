@@ -180,10 +180,11 @@
       if (allMessages.length === 0) {
         allMessages = Array.from(container.querySelectorAll(".group"));
       }
-      if (allMessages.length === 0) {
-        allMessages = Array.from(container.querySelectorAll("div"));
-      }
       if (__DEV__) debugLog("[LightSession Content] trimDOM: found", allMessages.length, "message containers");
+      if (allMessages.length === 0) {
+        if (__DEV__) debugLog("[LightSession Content] trimDOM: No messages found, skipping trim (likely new chat page)");
+        return;
+      }
       const validMessages = allMessages.filter((msg) => {
         let role = msg.getAttribute("data-message-author-role");
         if (!role) {
